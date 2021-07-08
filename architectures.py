@@ -16,6 +16,7 @@ class EEGNetEncoder(nn.Module):
         self.conv1 = nn.Conv2d(1,temporal_filters,(1,64), padding='same', bias=False)
         self.bn1 = nn.BatchNorm2d(temporal_filters)
         self.conv2 = layers.ConstrainedConv2d(temporal_filters, spatial_filters*temporal_filters, kernel_size=(channels,1), padding='valid', groups=temporal_filters, bias=False) # DepthwiseConv2d
+        #self.conv2 = nn.Conv2d(temporal_filters, spatial_filters*temporal_filters, kernel_size=(channels,1), padding='valid', groups=temporal_filters, bias=False) # DepthwiseConv2d)
         self.bn2 = nn.BatchNorm2d(spatial_filters*temporal_filters)
         self.act1 = nn.ELU()
         self.pool1 = nn.AvgPool2d((1,4))
