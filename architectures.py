@@ -135,11 +135,35 @@ class DeepConvNetEncoder(nn.Module):
         return z
 
 class ShallowConvNetEncoder(nn.Module):
+    def __init__(self, channels, latent_dim):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, 40, (1,13))
+        self.conv2 = nn.Conv2d(40, 40,(channels, 1), bias=False)
+        self.bn1 = nn.BatchNorm2d(eps=1e-05, momentum=0.1)
+        self.pool1 = nn.AvgPool2d((1,35), (1,7))
+        self.drop1 = nn.Dropout(0.5)
+        self.flat = nn.Flatten()
+        self.pool2 = nn.AdaptiveAvgPool1d(latent_dim)
+
+    def forward(self, x):
+        h = self.conv1(x)
+        h = self.conv2(h)
+        h = self.bn1(h)
+        h = torch.square(h)
+        h = self.pool1(h)
+        h = torch.log(torch.clip(h, 1e-7, 10000))
+        h = self.drop1(h)
+        h = self.flat(h)
+        y = self.pool2(h)
+
+        return y
+
+class MLPEncoder(nn.Module):
     def __init__(self):
         super().__init__()
 
-    def forward(self, x):
-        return x
+    def forward(self,x):
+        pass
 
 class DenseClassifier(nn.Module):
     def __init__(self, latent_dim, classes, max_norm=0.25, use_bias=False):

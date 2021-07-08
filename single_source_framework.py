@@ -40,9 +40,9 @@ def train(enc, cla, X, Y, batch_size, epochs=500, early_stopping_after_epochs=50
             acc = acc + accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
 
         # This line is to handle the fact that the last batch may be smaller then the other batches
-        acc = acc - accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1)) + float(batch_end_idx[-1]-batch_start_idx[-1])/num_batches  * accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
+        acc = acc - accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1)) + float(batch_end_idx[-1]-batch_start_idx[-1])/batch_size  * accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
 
-        acc = acc / num_batches
+        acc = acc / (float(x_list[0].shape[0]) / batch_size)
         
         end_time = time.time()
 
