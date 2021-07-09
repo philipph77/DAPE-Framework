@@ -45,6 +45,11 @@ class Framework(nn.Module):
         return y_pred, y_batch
     
     def custom_train(self, x_list, y_list, max_epochs=500, batch_size=64):
+
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+        x_list, y_list = x_list.to(device), y_list.to(device)
+
         optimizer = optim.Adam(self.params, lr=1e-3, weight_decay=1e-4)
         criterion = nn.CrossEntropyLoss()
 
@@ -99,6 +104,7 @@ class Framework(nn.Module):
 
 if __name__ == '__main__':
     from torchinfo import summary
+    import platform
     C = 32
     T = 2*128
     F1 = 32
@@ -115,10 +121,17 @@ if __name__ == '__main__':
     batch_size = 64
     num_batches = 1000
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     model = Framework(encoders, 20, 3)
+
+    model = model.to(device)
     #summary(model, input_size=[(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T)])
 
-    dataset = np.load('../../Datasets/private_encs/DEAP.npz')
+    if  platform.system() == 'Darwin':
+        dataset = np.load('../../Datasets/private_encs/DEAP.npz')
+    else:
+        dataset = np.load('../Datasets/private_encs/DEAP.npz')
     x_list = list()
     y_list = list()
 
