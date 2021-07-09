@@ -13,8 +13,9 @@ import architectures
 
 
 class Framework(nn.Module):
-    def __init__(self, encoders, latent_dim, num_classes):
+    def __init__(self, encoders, latent_dim, num_classes, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
         super().__init__()
+        self.device = device
         self.num_datasources = len(encoders)
         self.is_trained = False
         self.encoders = encoders
@@ -30,6 +31,7 @@ class Framework(nn.Module):
 
         z_list = list()
         for datasource_id, x_i in enumerate(x_list):
+            x_i = x_i.to(self.device)
             z_i = self.encoders[datasource_id](x_i)
             z_list.append(z_i)
 
@@ -45,11 +47,6 @@ class Framework(nn.Module):
         return y_pred, y_batch
     
     def custom_train(self, x_list, y_list, max_epochs=500, batch_size=64):
-
-        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
-        x_list, y_list = x_list.to(device), y_list.to(device)
-
         optimizer = optim.Adam(self.params, lr=1e-3, weight_decay=1e-4)
         criterion = nn.CrossEntropyLoss()
 
@@ -123,7 +120,7 @@ if __name__ == '__main__':
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    model = Framework(encoders, 20, 3)
+    model = Framework(encoders, 20, 3, device=device)
 
     model = model.to(device)
     #summary(model, input_size=[(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T)])
@@ -139,5 +136,5 @@ if __name__ == '__main__':
         x_list.append(torch.from_numpy(dataset['X']).type(torch.FloatTensor))
         y_list.append(torch.from_numpy(dataset['Y']).type(torch.LongTensor) + 1)
 
-    #model.custom_train(x_list,y_list)
+    model.custom_train(x_list,y_list)
     
