@@ -82,6 +82,8 @@ def train(model, datasource_files, max_epochs=500, batch_size=64):
         with torch.no_grad():
             acc = 0.
             for x_val_list, y_true in tqdm(validation_dataloader):
+                x_val_list = [x_i.to(device) for x_i in x_val_list]
+                y_true = y_true.to(device)
                 y_true = torch.flatten(y_true)
                 y_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
