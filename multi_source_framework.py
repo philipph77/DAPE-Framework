@@ -67,8 +67,8 @@ def train(model, datasource_files, max_epochs=500, batch_size=64):
         model.train()
         start_time = time.time()
         loss = 0.
-        optimizer.zero_grad()
         for x_list,y_true in tqdm(train_dataloader):
+            optimizer.zero_grad()
             x_list = [x_i.to(device) for x_i in x_list]
             y_true = y_true.to(device)
             y_true = torch.flatten(y_true)
