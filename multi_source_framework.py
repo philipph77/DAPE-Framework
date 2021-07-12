@@ -81,15 +81,19 @@ def train(model, datasource_files, max_epochs=500, batch_size=64):
         model.eval()
         with torch.no_grad():
             acc = 0.
-            for x_val_list, y_true in tqdm(validation_dataloader):
+            for x_val_list, y_true in validation_dataloader:
                 x_val_list = [x_i.to(device) for x_i in x_val_list]
                 y_true = y_true.to(device)
                 y_true = torch.flatten(y_true)
                 y_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
-                acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
+                batch_acc = accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
+                print("Batch Accuracy: %4.2f"%batch_acc)
+                acc += batch_acc
         
-        acc = acc / len(validation_data)
+        acc = acc / len(validation_dataloader)
+        print(len(validation_dataloader))
+        print(len(validation_data))
         end_time = time.time()
         print("Epoch %i: - Loss: %4.2f - Accuracy: %4.2f - Elapsed Time: %4.2f s"%(epoch, loss, acc, end_time-start_time))
 
