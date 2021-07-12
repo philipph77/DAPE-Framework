@@ -106,7 +106,7 @@ if __name__ == '__main__':
         path = '../Datasets/private_encs/'
     datasource_files = [os.path.join(path,f) for f in sorted(os.listdir(path)) if f.endswith('.npz') and 'split' in f and not('test' in f)]
 
-    batch_size = 64
+    batch_size = 4*64
     F1, D, F2 = 32, 16, 8
 
     encoders = [
