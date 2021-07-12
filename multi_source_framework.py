@@ -13,6 +13,13 @@ from tqdm import trange, tqdm
 import architectures
 import datasets
 
+DEBUG_MODE = True
+
+if not(DEBUG_MODE):
+    torch.autograd.set_detect_anomaly(False)
+    torch.autograd.profiler.profile(False)
+    torch.autograd.profiler.emit_nvtx(False)
+
 
 class Framework(nn.Module):
     def __init__(self, encoders, latent_dim, num_classes, use_adversary=False):
@@ -57,18 +64,21 @@ def train(model, datasource_files, max_epochs=500, batch_size=64):
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
+    #torch.backends.cudnn.benchmark = True
 
     training_data = datasets.MultiSourceDataset(datasource_files)
-    train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
+    train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     validation_data = datasets.MultiSourceDataset(datasource_files)
-    validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True)
+    validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
 
     for epoch in range(max_epochs):
         model.train()
         start_time = time.time()
         loss = 0.
         for x_list,y_true in tqdm(train_dataloader):
-            optimizer.zero_grad()
+            #optimizer.zero_grad()
+            for param in model.parameters():
+                param.grad = None
             x_list = [x_i.to(device) for x_i in x_list]
             y_true = y_true.to(device)
             y_true = torch.flatten(y_true)
