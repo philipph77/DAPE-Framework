@@ -61,6 +61,7 @@ if __name__ == '__main__':
     import architectures
     from torchinfo import summary
     import platform
+    import helper_funcs
 
     C = 32
     T = 2*128
@@ -83,5 +84,10 @@ if __name__ == '__main__':
 
     summary(enc,(batch_size, 1,32,256))
     summary(cla, (batch_size, 1,20))
+
+    print("----- Model Parameters -----")
+    print(helper_funcs.count_parameters(enc))
+    print(helper_funcs.count_parameters(cla))
+    print("---------")
 
     train(enc, cla, X, Y, batch_size = batch_size)
