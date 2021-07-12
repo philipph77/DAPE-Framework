@@ -13,9 +13,8 @@ import architectures
 
 
 class Framework(nn.Module):
-    def __init__(self, encoders, latent_dim, num_classes, device=torch.device("cuda:0" if torch.cuda.is_available() else "cpu")):
+    def __init__(self, encoders, latent_dim, num_classes):
         super().__init__()
-        self.device = device
         self.num_datasources = len(encoders)
         self.is_trained = False
         self.encoders = encoders
@@ -31,7 +30,6 @@ class Framework(nn.Module):
 
         z_list = list()
         for datasource_id, x_i in enumerate(x_list):
-            x_i = x_i.to(self.device)
             z_i = self.encoders[datasource_id](x_i)
             z_list.append(z_i)
 
@@ -45,60 +43,6 @@ class Framework(nn.Module):
         y_pred = self.emotion_classifier(z)
 
         return y_pred, y_batch
-    
-    def custom_train(self, x_train_list, y_train_list, x_val_list, y_val_list, max_epochs=500, batch_size=64):
-        optimizer = optim.Adam(self.params, lr=1e-3, weight_decay=1e-4)
-        criterion = nn.CrossEntropyLoss()
-
-        y_val = torch.cat(y_val_list, dim=0)
-        for i in range(len(x_val_list)):
-            x_val_list[i].unsqueeze_(1)
-
-        # prepare the batches
-        batch_start_idx = list()
-        batch_end_idx = list()
-        num_batches = math.ceil(float(x_train_list[0].shape[0]) / batch_size)
-        # note: it is necessary, that each encoder recieves the exact same amount of batches
-        for datasource_id in range(self.num_datasources):
-            assert math.ceil(float(x_train_list[datasource_id].shape[0]) / batch_size) == num_batches
-        batch_start_idx = np.arange(0, num_batches*batch_size, batch_size)
-        batch_end_idx = batch_start_idx + batch_size
-        batch_end_idx[-1] = x_train_list[0].shape[0]
-        assert len(batch_start_idx) == num_batches
-        assert len(batch_end_idx) == num_batches
-
-        # pass the batches to the forward method (as a list)
-        for epoch in range(max_epochs):
-            start_time = time.time()
-            acc = 0.
-            loss = 0.
-            for batch_idx in trange(num_batches):
-                x_batch_list = list()
-                y_batch_list = list()
-                optimizer.zero_grad()
-                for i in range(self.num_datasources):
-                    x_batch_list.append(x_train_list[i][batch_start_idx[batch_idx]:batch_end_idx[batch_idx],:,:].unsqueeze_(1))
-                    y_batch_list.append(y_train_list[i][batch_start_idx[batch_idx]:batch_end_idx[batch_idx]])
-                y_batch = torch.cat(y_batch_list, dim=0)
-                y_pred, y_batch = self.forward(x_batch_list, y_batch)
-                y_pred.squeeze_()
-                loss = criterion(y_pred, y_batch)
-                loss.backward()
-                optimizer.step()
-                #acc = acc + accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
-            # This line is to handle the fact that the last batch may be smaller then the other batches
-            #acc = acc - accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1)) + float(batch_end_idx[-1]-batch_start_idx[-1])/batch_size  * accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
-
-            #acc = acc / (float(x_train_list[0].shape[0]) / batch_size)
-            
-            end_time = time.time()
-
-            y_val_pred, y_val = self.forward(x_val_list, y_val)
-
-            acc = accuracy_score(y_pred.detach().numpy, np.argmax(y_val_pred.detach().numpy(), axis=1))
-
-            print("Epoch %i: - Loss: %4.2f - Accuracy: %4.2f - Elapsed Time: %4.2f s"%(epoch, loss, acc, end_time-start_time))
-
 
     def add_datasource(self, encoder, x, d):
         if not(self.is_trained):
@@ -106,6 +50,63 @@ class Framework(nn.Module):
             return
         pass
 
+def train(model, x_train_list, y_train_list, x_val_list, y_val_list, max_epochs=500, batch_size=32):
+    optimizer = optim.Adam(model.params, lr=1e-3, weight_decay=1e-4)
+    criterion = nn.CrossEntropyLoss()
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
+    model = model.to(device)
+
+    y_val = torch.cat(y_val_list, dim=0)
+    for i in range(len(x_val_list)):
+        x_val_list[i].unsqueeze_(1)
+
+    # prepare the batches
+    batch_start_idx = list()
+    batch_end_idx = list()
+    num_batches = math.ceil(float(x_train_list[0].shape[0]) / batch_size)
+    # note: it is necessary, that each encoder recieves the exact same amount of batches
+    for datasource_id in range(model.num_datasources):
+        assert math.ceil(float(x_train_list[datasource_id].shape[0]) / batch_size) == num_batches
+    batch_start_idx = np.arange(0, num_batches*batch_size, batch_size)
+    batch_end_idx = batch_start_idx + batch_size
+    batch_end_idx[-1] = x_train_list[0].shape[0]
+    assert len(batch_start_idx) == num_batches
+    assert len(batch_end_idx) == num_batches
+
+    # pass the batches to the forward method (as a list)
+    for epoch in range(max_epochs):
+        start_time = time.time()
+        acc = 0.
+        loss = 0.
+        for batch_idx in trange(num_batches):
+            x_batch_list = list()
+            y_batch_list = list()
+            optimizer.zero_grad()
+            for i in range(model.num_datasources):
+                x_batch_list.append(x_train_list[i][batch_start_idx[batch_idx]:batch_end_idx[batch_idx],:,:].unsqueeze_(1))
+                y_batch_list.append(y_train_list[i][batch_start_idx[batch_idx]:batch_end_idx[batch_idx]])
+            y_batch = torch.cat(y_batch_list, dim=0)
+            y_pred, y_batch = model(x_batch_list, y_batch)
+            y_pred.squeeze_()
+            loss = criterion(y_pred, y_batch)
+            loss.backward()
+            optimizer.step()
+            #acc = acc + accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
+        # This line is to handle the fact that the last batch may be smaller then the other batches
+        #acc = acc - accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1)) + float(batch_end_idx[-1]-batch_start_idx[-1])/batch_size  * accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
+
+        #acc = acc / (float(x_train_list[0].shape[0]) / batch_size)
+        
+        end_time = time.time()
+
+        y_val_pred, y_val = model(x_val_list, y_val)
+        y_val_pred.squeeze_()
+
+        acc = accuracy_score(y_val.detach().numpy(), np.argmax(y_val_pred.detach().numpy(), axis=1))
+
+        print("Epoch %i: - Loss: %4.2f - Accuracy: %4.2f - Elapsed Time: %4.2f s"%(epoch, loss, acc, end_time-start_time))
 
 if __name__ == '__main__':
     import os
@@ -128,11 +129,9 @@ if __name__ == '__main__':
     batch_size = 64
     num_batches = 1000
 
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = Framework(encoders, 20, 3)
 
-    model = Framework(encoders, 20, 3, device=device)
-
-    model = model.to(device)
+    
     #summary(model, input_size=[(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T)])
 
     if  platform.system() == 'Darwin':
@@ -169,5 +168,5 @@ if __name__ == '__main__':
         y_val_list.append(y_val_element)
         y_test_list.append(y_test_element)
 
-    model.custom_train(x_train_list, y_train_list, x_val_list, y_val_list)
+    train(model, x_train_list, y_train_list, x_val_list, y_val_list)
     
