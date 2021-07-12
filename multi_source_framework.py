@@ -97,13 +97,9 @@ def train(model, datasource_files, max_epochs=500, batch_size=64):
                 y_true = torch.flatten(y_true)
                 y_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
-                batch_acc = accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
-                print("Batch Accuracy: %4.2f"%batch_acc)
-                acc += batch_acc
-        
+                
+                acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
         acc = acc / len(validation_dataloader)
-        print(len(validation_dataloader))
-        print(len(validation_data))
         end_time = time.time()
         print("Epoch %i: - Loss: %4.2f - Accuracy: %4.2f - Elapsed Time: %4.2f s"%(epoch, loss, acc, end_time-start_time))
 
