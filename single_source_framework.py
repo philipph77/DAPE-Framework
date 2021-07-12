@@ -12,7 +12,7 @@ def train(enc, cla, X, Y, batch_size, epochs=500, early_stopping_after_epochs=50
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-    X, Y = X.to(device), Y.to(device)
+    #X, Y = X.to(device), Y.to(device)
 
     optimizer = optim.SGD([{'params': enc.parameters()},{'params': cla.parameters()}], lr=0.01)
     criterion = nn.CrossEntropyLoss()

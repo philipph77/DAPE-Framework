@@ -46,20 +46,24 @@ class Framework(nn.Module):
 
         return y_pred, y_batch
     
-    def custom_train(self, x_list, y_list, max_epochs=500, batch_size=64):
+    def custom_train(self, x_train_list, y_train_list, x_val_list, y_val_list, max_epochs=500, batch_size=64):
         optimizer = optim.Adam(self.params, lr=1e-3, weight_decay=1e-4)
         criterion = nn.CrossEntropyLoss()
+
+        y_val = torch.cat(y_val_list, dim=0)
+        for i in range(len(x_val_list)):
+            x_val_list[i].unsqueeze_(1)
 
         # prepare the batches
         batch_start_idx = list()
         batch_end_idx = list()
-        num_batches = math.ceil(float(x_list[0].shape[0]) / batch_size)
+        num_batches = math.ceil(float(x_train_list[0].shape[0]) / batch_size)
         # note: it is necessary, that each encoder recieves the exact same amount of batches
         for datasource_id in range(self.num_datasources):
-            assert math.ceil(float(x_list[datasource_id].shape[0]) / batch_size) == num_batches
+            assert math.ceil(float(x_train_list[datasource_id].shape[0]) / batch_size) == num_batches
         batch_start_idx = np.arange(0, num_batches*batch_size, batch_size)
         batch_end_idx = batch_start_idx + batch_size
-        batch_end_idx[-1] = x_list[0].shape[0]
+        batch_end_idx[-1] = x_train_list[0].shape[0]
         assert len(batch_start_idx) == num_batches
         assert len(batch_end_idx) == num_batches
 
@@ -73,21 +77,25 @@ class Framework(nn.Module):
                 y_batch_list = list()
                 optimizer.zero_grad()
                 for i in range(self.num_datasources):
-                    x_batch_list.append(x_list[i][batch_start_idx[batch_idx]:batch_end_idx[batch_idx],:,:].unsqueeze_(1))
-                    y_batch_list.append(y_list[i][batch_start_idx[batch_idx]:batch_end_idx[batch_idx]])
+                    x_batch_list.append(x_train_list[i][batch_start_idx[batch_idx]:batch_end_idx[batch_idx],:,:].unsqueeze_(1))
+                    y_batch_list.append(y_train_list[i][batch_start_idx[batch_idx]:batch_end_idx[batch_idx]])
                 y_batch = torch.cat(y_batch_list, dim=0)
                 y_pred, y_batch = self.forward(x_batch_list, y_batch)
                 y_pred.squeeze_()
                 loss = criterion(y_pred, y_batch)
                 loss.backward()
                 optimizer.step()
-                acc = acc + accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
+                #acc = acc + accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
             # This line is to handle the fact that the last batch may be smaller then the other batches
-            acc = acc - accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1)) + float(batch_end_idx[-1]-batch_start_idx[-1])/batch_size  * accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
+            #acc = acc - accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1)) + float(batch_end_idx[-1]-batch_start_idx[-1])/batch_size  * accuracy_score(y_batch.detach().numpy(), np.argmax(y_pred.detach().numpy(),axis=1))
 
-            acc = acc / (float(x_list[0].shape[0]) / batch_size)
+            #acc = acc / (float(x_train_list[0].shape[0]) / batch_size)
             
             end_time = time.time()
+
+            y_val_pred, y_val = self.forward(x_val_list, y_val)
+
+            acc = accuracy_score(y_pred.detach().numpy, np.argmax(y_val_pred.detach().numpy(), axis=1))
 
             print("Epoch %i: - Loss: %4.2f - Accuracy: %4.2f - Elapsed Time: %4.2f s"%(epoch, loss, acc, end_time-start_time))
 
@@ -100,8 +108,10 @@ class Framework(nn.Module):
 
 
 if __name__ == '__main__':
+    import os
     from torchinfo import summary
     import platform
+    from sklearn.model_selection import train_test_split
     C = 32
     T = 2*128
     F1 = 32
@@ -109,10 +119,10 @@ if __name__ == '__main__':
     F2 = 8
 
     encoders = {
-        0: architectures.EEGNetEncoder(channels=C, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20),
-        1: architectures.EEGNetEncoder(channels=C, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20),
-        2: architectures.EEGNetEncoder(channels=C, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20),
-        3: architectures.EEGNetEncoder(channels=C, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20)
+        0: architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20), #SEED
+        1: architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20), #SEED-IV
+        2: architectures.EEGNetEncoder(channels=32, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20), #DEAP
+        3: architectures.EEGNetEncoder(channels=14, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20)  #DREAMER
     }
 
     batch_size = 64
@@ -126,15 +136,38 @@ if __name__ == '__main__':
     #summary(model, input_size=[(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T),(batch_size*num_batches,1,C,T)])
 
     if  platform.system() == 'Darwin':
-        dataset = np.load('../../Datasets/private_encs/DEAP.npz')
+        path = '../../Datasets/private_encs/'
     else:
-        dataset = np.load('../Datasets/private_encs/DEAP.npz')
+        path = '../Datasets/private_encs/'
+
+    
     x_list = list()
     y_list = list()
 
-    for i in range(len(encoders)):
-        x_list.append(torch.from_numpy(dataset['X']).type(torch.FloatTensor))
-        y_list.append(torch.from_numpy(dataset['Y']).type(torch.LongTensor) + 1)
+    datasource_files = [f for f in os.listdir(path) if f.endswith('.npz') and 'split' in f and not('test' in f)]
 
-    model.custom_train(x_list,y_list)
+    for datasource_file in datasource_files:
+        datasource = np.load(os.path.join(path, datasource_file))
+        x_list.append(torch.from_numpy(datasource['X']).type(torch.FloatTensor))
+        y_list.append(torch.from_numpy(datasource['Y']).type(torch.LongTensor) + 1)
+
+    x_train_list = list()
+    x_val_list = list()
+    x_test_list = list()
+
+    y_train_list = list()
+    y_val_list = list()
+    y_test_list = list()
+
+    for i in range(len(x_list)):
+        x_train_element, x_test_element, y_train_element, y_test_element = train_test_split(x_list[i], y_list[i], train_size=0.6)
+        x_val_element, x_test_element, y_val_element, y_test_element = train_test_split(x_test_element, y_test_element, test_size=0.5)
+        x_train_list.append(x_test_element)
+        x_val_list.append(x_val_element)
+        x_test_list.append(x_test_element)
+        y_train_list.append(y_train_element)
+        y_val_list.append(y_val_element)
+        y_test_list.append(y_test_element)
+
+    model.custom_train(x_train_list, y_train_list, x_val_list, y_val_list)
     
