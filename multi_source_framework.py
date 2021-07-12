@@ -102,16 +102,16 @@ if __name__ == '__main__':
         path = '../../Datasets/private_encs/'
     else:
         path = '../Datasets/private_encs/'
-    datasource_files = [os.path.join(path,f) for f in os.listdir(path) if f.endswith('.npz') and 'split' in f and not('test' in f)]
+    datasource_files = [os.path.join(path,f) for f in sorted(os.listdir(path)) if f.endswith('.npz') and 'split' in f and not('test' in f)]
 
     batch_size = 64
     F1, D, F2 = 32, 16, 8
 
     encoders = [
-        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20), #SEED
-        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20), #SEED-IV
         architectures.EEGNetEncoder(channels=32, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20), #DEAP
-        architectures.EEGNetEncoder(channels=14, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20)  #DREAMER
+        architectures.EEGNetEncoder(channels=14, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20),  #DREAMER
+        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20), #SEED
+        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20) #SEED-IV
     ]
     model = Framework(encoders, 20, 3)
 
