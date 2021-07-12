@@ -4,7 +4,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class EEGNetEncoder(nn.Module):
-    def __init__(self, channels, temporal_filters, spatial_filters, pointwise_filters, dropout_propability, latent_dim):
+    def __init__(self, channels, temporal_filters, spatial_filters, pointwise_filters, dropout_propability, latent_dim, use_constrained_conv=True):
         """ For details about the Parameters see
         Lawhern, Vernon J., et al. "EEGNet: a compact convolutional neural network for EEG-based brain–computer interfaces." Journal of neural engineering 15.5 (2018): 056013.
 
@@ -15,8 +15,10 @@ class EEGNetEncoder(nn.Module):
         # Block 1
         self.conv1 = nn.Conv2d(1,temporal_filters,(1,64), padding='same', bias=False)
         self.bn1 = nn.BatchNorm2d(temporal_filters)
-        self.conv2 = layers.ConstrainedConv2d(temporal_filters, spatial_filters*temporal_filters, kernel_size=(channels,1), padding='valid', groups=temporal_filters, bias=False) # DepthwiseConv2d
-        #self.conv2 = nn.Conv2d(temporal_filters, spatial_filters*temporal_filters, kernel_size=(channels,1), padding='valid', groups=temporal_filters, bias=False) # DepthwiseConv2d)
+        if use_constrained_conv:
+            self.conv2 = layers.ConstrainedConv2d(temporal_filters, spatial_filters*temporal_filters, kernel_size=(channels,1), padding='valid', groups=temporal_filters, bias=False) # DepthwiseConv2d
+        else:
+            self.conv2 = nn.Conv2d(temporal_filters, spatial_filters*temporal_filters, kernel_size=(channels,1), padding='valid', groups=temporal_filters, bias=False) # DepthwiseConv2d
         self.bn2 = nn.BatchNorm2d(spatial_filters*temporal_filters)
         self.act1 = nn.ELU()
         self.pool1 = nn.AvgPool2d((1,4))
