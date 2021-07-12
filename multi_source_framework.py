@@ -123,5 +123,5 @@ if __name__ == '__main__':
     #summary(model, input_size=[(1,62,2*256),(batch_size,1,62,2*256),(batch_size,1,32,2*128),(batch_size,1,14,2*128)])
     #print(model)
 
-    train(model, datasource_files)
+    train(model, datasource_files, batch_size=batch_size)
     
