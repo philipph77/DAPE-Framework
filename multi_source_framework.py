@@ -58,18 +58,21 @@ class Framework(nn.Module):
         #TODO: insert training procedure for the encoder here
         pass
 
-def train(model, datasource_files, max_epochs=500, batch_size=64, num_workers=1):
+def train(model, max_epochs=500, batch_size=64, num_workers=1, train_datasource_files=None, val_datasource_files=None, train_dataloader=None, validation_dataloader=None):
     optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss()
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     #torch.backends.cudnn.benchmark = True
-
-    training_data = datasets.MultiSourceDataset(datasource_files)
-    train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-    validation_data = datasets.MultiSourceDataset(datasource_files)
-    validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
+    if train_dataloader == None:
+        assert not(train_datasource_files==None)
+        training_data = datasets.MultiSourceDataset(train_datasource_files)
+        train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
+    if validation_dataloader == None:
+        assert not(val_datasource_files==None)
+        validation_data = datasets.MultiSourceDataset(val_datasource_files)
+        validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
 
     for epoch in range(max_epochs):
         model.train()
@@ -109,6 +112,8 @@ if __name__ == '__main__':
     import platform
     from sklearn.model_selection import train_test_split
     import helper_funcs
+    import time
+    import random
 
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
@@ -138,7 +143,14 @@ if __name__ == '__main__':
     batch_sizes = 2**np.arange(4,11)
     batch_sizes = batch_sizes.tolist()
     num_workers = np.arange(1,9).tolist()
-    for batch_size in batch_sizes:
-        for workers in num_workers:
-            train(model, datasource_files, max_epochs=1, batch_size=batch_size, num_workers=workers)
+    times = np.empty((len(batch_sizes), len(num_workers)))
+    for i,batch_size in enumerate(batch_sizes):
+        for j,workers in enumerate(num_workers):
+            start = time.time()
+            train(model, max_epochs=1, batch_size=batch_size, num_workers=workers, train_datasource_files=datasource_files, val_datasource_files=datasource_files)
+            end = time.time()
+            times[i,j] = end-start
+    print("Each Row is the same batchsize")
+    print(times)
+
     
