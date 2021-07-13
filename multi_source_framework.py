@@ -128,15 +128,16 @@ if __name__ == '__main__':
     ]
     model = Framework(encoders, 20, 3)
 
-    print("----- #Model Parameters: -----")
-    print(helper_funcs.count_parameters(model))
-    print("---------")
+    #print("----- #Model Parameters: -----")
+    #print(helper_funcs.count_parameters(model))
+    #print("---------")
     #summary(model, input_size=[(1,62,2*256),(batch_size,1,62,2*256),(batch_size,1,32,2*128),(batch_size,1,14,2*128)])
-    print(model)
+    #print(model)
 
 
     batch_sizes = 2**np.arange(4,11)
-    num_workers = np.arange(1,9)
+    batch_sizes = batch_sizes.tolist()
+    num_workers = np.arange(1,9).tolist()
     for batch_size in batch_sizes:
         for workers in num_workers:
             train(model, datasource_files, max_epochs=1, batch_size=batch_size, num_workers=workers)
