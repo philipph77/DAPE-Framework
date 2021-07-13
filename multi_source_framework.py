@@ -45,19 +45,31 @@ class Framework(nn.Module):
 
         return y_pred
 
-    def add_datasource(self, encoder, x, d):
+    def add_encoder(self, encoder):
         # ATTENTION: THIS IS NOT SUPPORTED YET!
-        if not(self.is_trained):
-            print("The Framework was not trained yet, you can add the data-source be training the whole framework")
-            return
-        for param in self.parameters():
-            param.requires_grad = False
+        if self.is_trained:
+            for param in self.parameters():
+                param.requires_grad = False
         self.building_blocks.insert(-1,encoder)
-        #TODO: insert training procedure for the encoder here
+
+    def get_config(self):
         pass
 
 def train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=500, early_stopping_after_epochs=50):
+    """Trains a Multi-Source Framework and logs relevant data to file
 
+    Args:
+        model ([Framework (PyTorch Model)]): The PyTorch Framework, that you want to train
+        train_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the training data
+        validation_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the testing data
+        run_name ([string]): a unique name, to identify the run later on
+        logpath ([string]): the path, where you want to save the logfiles
+        max_epochs (int, optional): Maximum number of epochs you want to train. Defaults to 500.
+        early_stopping_after_epochs (int, optional): The number of epochs without improvement in validation loss, the training should be stopped afer. Defaults to 50.
+
+    Returns:
+        [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
+    """    
     #setup
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -68,8 +80,12 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
     early_stopping_wait = 0
 
     # Prepare Logging
-    if not (os.isdir(os.path.join(logpath, run_name))):
+    if not (os.path.isdir(os.path.join(logpath, run_name))):
         os.makedirs(os.path.join(logpath, run_name))
+
+    elif os.path.isfile(os.path.join(logpath, run_name, 'logs.csv')):
+        print("LogFile already exists! Rename or remove it, and restart the training")
+        return 0
     header = ['Epoch', 'Train-Loss', 'Validation-Loss', 'Validation-Accuracy']
     with open(os.path.join(logpath, run_name, 'logs.csv'), 'w', encoding='UTF8') as f:
         writer = csv.writer(f)
@@ -79,7 +95,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
         # Training
         model.train()
         start_time = time.time()
-        loss = 0.
+        train_loss = 0.
         for x_list,y_true in tqdm(train_dataloader):
             #optimizer.zero_grad()
             for param in model.parameters():
@@ -92,28 +108,30 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
             loss = criterion(y_pred, y_true)
             loss.backward()
             optimizer.step()
-
+            train_loss += loss.item()
+        train_loss = train_loss / len(train_dataloader)
         # Validation
         model.eval()
         with torch.no_grad():
-            acc = 0.
+            val_loss = 0.
+            val_acc = 0.
             for x_val_list, y_true in validation_dataloader:
                 x_val_list = [x_i.to(device) for x_i in x_val_list]
                 y_true = y_true.to(device)
                 y_true = torch.flatten(y_true)
                 y_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
-                val_loss = criterion(y_val_pred,y_true)
-                
-                acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
-        acc = acc / len(validation_dataloader)
+                val_loss += criterion(y_val_pred,y_true).item()
+                val_acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
+        val_loss = val_loss / len(validation_dataloader)
+        val_acc = val_acc / len(validation_dataloader)
         end_time = time.time()
 
         # Logging
-        print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(run_name, epoch, loss, val_loss, acc, end_time-start_time))
+        print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(run_name, epoch, train_loss, val_loss, val_acc, end_time-start_time))
         with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
             writer = csv.writer(f)
-            writer.writerow([str(epoch), str(loss), str(val_loss), str(acc)])
+            writer.writerow([str(epoch), str(train_loss), str(val_loss), str(val_acc)])
 
         # Early Stopping
         if val_loss < min_loss:
@@ -122,8 +140,9 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
             best_state = {
                     'epoch': epoch,
                     'state_dict': model.state_dict(),
+                    'train_loss': train_loss,
                     'val_loss': val_loss,
-                    'val_acc': acc,
+                    'val_acc': val_acc,
                     'optimizer' : optimizer.state_dict(),
                 }
         else:
@@ -133,7 +152,48 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
                 break
         
     torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
-    return
+    return 1
+
+def test(model, test_dataloader, run_name, logpath):
+    """Calculates and logs the achieved accuracy of a trained Framework on a testset
+
+    Args:
+        model ([Framework (PyTorch Model)]): The PyTorch Framework, that you want to train
+        test_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the training data
+        run_name ([string]): a unique name, to identify the run later on
+        logpath ([string]): the path, where you want to save the logfiles
+
+    Returns:
+        [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
+    """    
+    if os.path.isfile(os.path.join(logpath, run_name, 'test_logs.csv')):
+        print("LogFile already exists! Rename or remove it, and restart the testing")
+        return 0
+    header = ['Test Accuracy']
+    with open(os.path.join(logpath, run_name, 'test_logs.csv'), 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    model.eval()
+    with torch.no_grad():
+        acc = 0.
+        for x_test_list, y_true in test_dataloader:
+            x_test_list = [x_i.to(device) for x_i in x_test_list]
+            y_true = y_true.to(device)
+            y_true = torch.flatten(y_true)
+            y_test_pred = model(x_test_list)
+            y_test_pred.squeeze_()
+            acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_test_pred.detach().cpu().numpy(), axis=1))
+    acc = acc / len(test_dataloader)
+    print("Test-Accuracy: %4.2f"%(acc))
+
+    with open(os.path.join(logpath, run_name, 'test_logs.csv'), 'a', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow([str(acc)])
+    
+    return 1
 
 def gridsearch(model, training_data, validation_data, batch_sizes=None, num_workers=None):
     import time
@@ -157,14 +217,15 @@ if __name__ == '__main__':
     import os
     from torchinfo import summary
     import platform
-    import helper_funcs
 
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
     else:
         path = '../Datasets/private_encs/'
+    
     train_datasource_files = [os.path.join(path,'train',f) for f in sorted(os.listdir(os.path.join(path, 'train'))) if f.endswith('.npz') and not('test' in f)]
     validation_datasource_files = [os.path.join(path,'val', f) for f in sorted(os.listdir(os.path.join(path, 'val'))) if f.endswith('.npz') and not('test' in f)]
+    test_datasource_files = [os.path.join(path,'test', f) for f in sorted(os.listdir(os.path.join(path, 'test'))) if f.endswith('.npz') and not('test' in f)]
 
     batch_size = 4*64
     F1, D, F2 = 32, 16, 8
@@ -194,5 +255,13 @@ if __name__ == '__main__':
     #print(model)
 
     train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
-    validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
-    train(model, train_dataloader, validation_dataloader, 'testing_arround', '../logs/testing/', max_epochs=3, early_stopping_after_epochs=1)
+    validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
+    if train(model, train_dataloader, validation_dataloader, 'testing_arround', '../logs/', max_epochs=500, early_stopping_after_epochs=1):
+        model.is_trained = True
+
+    best_state = torch.load(os.path.join('../logs/', 'testing_arround', 'best_model.pt'))
+    model.load_state_dict(best_state['state_dict'])
+
+    test_data = datasets.MultiSourceDataset(test_datasource_files)
+    test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
+    test(model, test_dataloader, 'testing_arround', '../logs')
