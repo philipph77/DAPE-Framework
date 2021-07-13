@@ -58,7 +58,7 @@ class Framework(nn.Module):
         #TODO: insert training procedure for the encoder here
         pass
 
-def train(model, datasource_files, max_epochs=500, batch_size=64):
+def train(model, datasource_files, max_epochs=500, batch_size=64, num_workers=1):
     optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
     criterion = nn.CrossEntropyLoss()
 
@@ -67,9 +67,9 @@ def train(model, datasource_files, max_epochs=500, batch_size=64):
     #torch.backends.cudnn.benchmark = True
 
     training_data = datasets.MultiSourceDataset(datasource_files)
-    train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
     validation_data = datasets.MultiSourceDataset(datasource_files)
-    validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
+    validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
 
     for epoch in range(max_epochs):
         model.train()
@@ -118,12 +118,13 @@ if __name__ == '__main__':
 
     batch_size = 4*64
     F1, D, F2 = 32, 16, 8
+    latent_dim = 20
 
     encoders = [
-        architectures.EEGNetEncoder(channels=32, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20, use_constrained_conv=False), #DEAP
-        architectures.EEGNetEncoder(channels=14, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20, use_constrained_conv=False),  #DREAMER
-        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20, use_constrained_conv=False), #SEED
-        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20, use_constrained_conv=False) #SEED-IV
+        architectures.EEGNetEncoder(channels=32, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False), #DEAP
+        architectures.EEGNetEncoder(channels=14, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False),  #DREAMER
+        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False), #SEED
+        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False) #SEED-IV
     ]
     model = Framework(encoders, 20, 3)
 
@@ -131,7 +132,12 @@ if __name__ == '__main__':
     print(helper_funcs.count_parameters(model))
     print("---------")
     #summary(model, input_size=[(1,62,2*256),(batch_size,1,62,2*256),(batch_size,1,32,2*128),(batch_size,1,14,2*128)])
-    #print(model)
+    print(model)
 
-    train(model, datasource_files, batch_size=batch_size)
+
+    batch_sizes = 2**np.arange(4,11)
+    num_workers = np.arange(1,9)
+    for batch_size in batch_sizes:
+        for workers in num_workers:
+            train(model, datasource_files, max_epochs=1, batch_size=batch_size, num_workers=workers)
     
