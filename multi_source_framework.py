@@ -1,15 +1,13 @@
-from scipy.sparse import data
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import numpy as np
-from sklearn.utils import shuffle
 from sklearn.metrics import accuracy_score
-import math
 import time
 from tqdm import trange, tqdm
+import csv
 import architectures
 import datasets
 
@@ -58,23 +56,27 @@ class Framework(nn.Module):
         #TODO: insert training procedure for the encoder here
         pass
 
-def train(model, max_epochs=500, batch_size=64, num_workers=1, train_datasource_files=None, val_datasource_files=None, train_dataloader=None, validation_dataloader=None):
-    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
-    criterion = nn.CrossEntropyLoss()
+def train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=500, early_stopping_after_epochs=50):
 
+    #setup
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     #torch.backends.cudnn.benchmark = True
-    if train_dataloader == None:
-        assert not(train_datasource_files==None)
-        training_data = datasets.MultiSourceDataset(train_datasource_files)
-        train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
-    if validation_dataloader == None:
-        assert not(val_datasource_files==None)
-        validation_data = datasets.MultiSourceDataset(val_datasource_files)
-        validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=num_workers, pin_memory=True)
+    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    criterion = nn.CrossEntropyLoss()
+    min_loss = np.infty
+    early_stopping_wait = 0
 
-    for epoch in range(max_epochs):
+    # Prepare Logging
+    if not (os.isdir(os.path.join(logpath, run_name))):
+        os.makedirs(os.path.join(logpath, run_name))
+    header = ['Epoch', 'Train-Loss', 'Validation-Loss', 'Validation-Accuracy']
+    with open(os.path.join(logpath, run_name, 'logs.csv'), 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+
+    for epoch in range(1,max_epochs+1):
+        # Training
         model.train()
         start_time = time.time()
         loss = 0.
@@ -91,6 +93,7 @@ def train(model, max_epochs=500, batch_size=64, num_workers=1, train_datasource_
             loss.backward()
             optimizer.step()
 
+        # Validation
         model.eval()
         with torch.no_grad():
             acc = 0.
@@ -100,26 +103,68 @@ def train(model, max_epochs=500, batch_size=64, num_workers=1, train_datasource_
                 y_true = torch.flatten(y_true)
                 y_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
+                val_loss = criterion(y_val_pred,y_true)
                 
                 acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
         acc = acc / len(validation_dataloader)
         end_time = time.time()
-        print("Epoch %i: - Loss: %4.2f - Accuracy: %4.2f - Elapsed Time: %4.2f s"%(epoch, loss, acc, end_time-start_time))
+
+        # Logging
+        print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(run_name, epoch, loss, val_loss, acc, end_time-start_time))
+        with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
+            writer = csv.writer(f)
+            writer.writerow([str(epoch), str(loss), str(val_loss), str(acc)])
+
+        # Early Stopping
+        if val_loss < min_loss:
+            early_stopping_wait=0
+            min_loss = val_loss
+            best_state = {
+                    'epoch': epoch,
+                    'state_dict': model.state_dict(),
+                    'val_loss': val_loss,
+                    'val_acc': acc,
+                    'optimizer' : optimizer.state_dict(),
+                }
+        else:
+            early_stopping_wait+=1    
+            if early_stopping_after_epochs > early_stopping_after_epochs:
+                print("Early Stopping")
+                break
+        
+    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
+    return
+
+def gridsearch(model, training_data, validation_data, batch_sizes=None, num_workers=None):
+    import time
+    batch_sizes = 2**np.arange(4,11)
+    batch_sizes = batch_sizes.tolist()
+    num_workers = np.arange(1,9).tolist()
+    times = np.empty((len(batch_sizes), len(num_workers)))
+    for i,batch_size in enumerate(batch_sizes):
+        for j,workers in enumerate(num_workers):
+            train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
+            validation_dataloader = DataLoader(validation_data, batch_size=batch_size, shuffle=True, num_workers=workers, pin_memory=True)
+            start = time.time()
+            train(model, train_dataloader, validation_dataloader, max_epochs=1)
+            end = time.time()
+            times[i,j] = end-start
+            del train_dataloader, validation_dataloader
+    print("Each Row is the same batchsize")
+    print(times)
 
 if __name__ == '__main__':
     import os
     from torchinfo import summary
     import platform
-    from sklearn.model_selection import train_test_split
     import helper_funcs
-    import time
-    import random
 
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
     else:
         path = '../Datasets/private_encs/'
-    datasource_files = [os.path.join(path,f) for f in sorted(os.listdir(path)) if f.endswith('.npz') and 'split' in f and not('test' in f)]
+    train_datasource_files = [os.path.join(path,'train',f) for f in sorted(os.listdir(os.path.join(path, 'train'))) if f.endswith('.npz') and not('test' in f)]
+    validation_datasource_files = [os.path.join(path,'val', f) for f in sorted(os.listdir(os.path.join(path, 'val'))) if f.endswith('.npz') and not('test' in f)]
 
     batch_size = 4*64
     F1, D, F2 = 32, 16, 8
@@ -133,24 +178,21 @@ if __name__ == '__main__':
     ]
     model = Framework(encoders, 20, 3)
 
+    training_data = datasets.MultiSourceDataset(train_datasource_files)
+    validation_data = datasets.MultiSourceDataset(validation_datasource_files)
+    batch_sizes = 2**np.arange(4,11)
+    batch_sizes = batch_sizes.tolist()
+    num_workers = np.arange(1,9).tolist()
+
+    #gridsearch(model, training_data, validation_data, batch_sizes, num_workers)
+
+
     #print("----- #Model Parameters: -----")
     #print(helper_funcs.count_parameters(model))
     #print("---------")
     #summary(model, input_size=[(1,62,2*256),(batch_size,1,62,2*256),(batch_size,1,32,2*128),(batch_size,1,14,2*128)])
     #print(model)
 
-
-    batch_sizes = 2**np.arange(4,11)
-    batch_sizes = batch_sizes.tolist()
-    num_workers = np.arange(1,9).tolist()
-    times = np.empty((len(batch_sizes), len(num_workers)))
-    for i,batch_size in enumerate(batch_sizes):
-        for j,workers in enumerate(num_workers):
-            start = time.time()
-            train(model, max_epochs=1, batch_size=batch_size, num_workers=workers, train_datasource_files=datasource_files, val_datasource_files=datasource_files)
-            end = time.time()
-            times[i,j] = end-start
-    print("Each Row is the same batchsize")
-    print(times)
-
-    
+    train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
+    validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
+    train(model, train_dataloader, validation_dataloader, 'testing_arround', '../logs/testing/', max_epochs=3, early_stopping_after_epochs=1)
