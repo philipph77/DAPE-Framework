@@ -26,14 +26,14 @@ class MultiSourceDataset(Dataset):
     def __getitem__(self, idx):
         x_item = list()
         y_item = list()
+        d_item = list()
         for i in range(self.num_datasources):
             x_item.append(self.x_list[i][idx,:,:].unsqueeze_(0))
             y_item.append(self.y_list[i][idx].reshape(-1,1))
+            d_item.append(torch.tensor(i).reshape(-1,1))
         y_item = torch.cat(y_item, dim=0).squeeze()
-
-        #print(y_item.shape)
-
-        return x_item, y_item
+        d_item = torch.cat(d_item, dim=0).squeeze()
+        return x_item, y_item, d_item
 
 
 def test_dimensions():
@@ -48,15 +48,10 @@ def test_dimensions():
     datasource_files = [os.path.join(path,f) for f in os.listdir(path) if f.endswith('.npz') and 'split' in f and not('test' in f)]
     training_data = MultiSourceDataset(datasource_files)
     train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True)
-    for x_batch_list,y_batch in train_dataloader:
+    for x_batch_list,y_batch, d_batch in train_dataloader:
         y_batch = torch.flatten(y_batch)
-        print("X: %s - Y: %s"%(str(x_batch_list[0].shape), str(y_batch.shape)))
+        d_batch = torch.flatten(d_batch)
+        print("X: %s - Y: %s - D: %s"%(str(x_batch_list[0].shape), str(y_batch.shape), str(d_batch.shape)))
 
 if __name__ == '__main__':
     test_dimensions()
-    #import torch
-    #t = torch.tensor([[1,2,3,4], [1,2,3,4]])
-    #print(t.shape)
-    #print(torch.flatten(t))
-    #print(torch.flatten(t).shape)
-    #main()
