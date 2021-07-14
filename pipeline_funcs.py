@@ -117,6 +117,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
         validation_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the testing data
         run_name ([string]): a unique name, to identify the run later on
         logpath ([string]): the path, where you want to save the logfiles
+        lam ([float]): loss weight for the adversary
         max_epochs (int, optional): Maximum number of epochs you want to train. Defaults to 500.
         early_stopping_after_epochs (int, optional): The number of epochs without improvement in validation loss, the training should be stopped afer. Defaults to 50.
 
