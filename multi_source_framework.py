@@ -23,8 +23,8 @@ class Framework(nn.Module):
         self.building_blocks = nn.ModuleList()
         self.building_blocks.extend(encoders)
         if self.use_adversary:
-            self.building_blocks.append(architectures.DenseClassifier(latent_dim, self.num_datasources))
-        self.building_blocks.append(architectures.DenseClassifier(latent_dim, num_classes))
+            self.building_blocks.append(architectures.DenseClassifier(latent_dim, self.num_datasources)) # Adversary
+        self.building_blocks.append(architectures.DenseClassifier(latent_dim, num_classes)) # Emotion Classifier
 
     def forward(self, x_list):
         if self.use_adversary:
