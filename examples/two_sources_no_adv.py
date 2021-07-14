@@ -31,10 +31,10 @@ def main():
     validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
 
     model = Framework(encoders, latent_dim, 3, use_adversary=False)
-    train(model, train_dataloader, validation_dataloader, 'seed-seed_iv-DCN-2000', '../logs/', max_epochs=1)
+    train(model, train_dataloader, validation_dataloader, 'seed-seed_iv-DCN-2000', '../logs/', max_epochs=500)
 
     model_adv = Framework(encoders, latent_dim, 3, use_adversary=True)
-    train_adversarial(model_adv, train_dataloader, validation_dataloader, 'seed-seed_iv-DCN-2000-adv', '../logs/',  0.05, max_epochs=1)      
+    train_adversarial(model_adv, train_dataloader, validation_dataloader, 'seed-seed_iv-DCN-2000-adv', '../logs/',  0.05, max_epochs=500)      
 
 if __name__ == '__main__':
     main()
