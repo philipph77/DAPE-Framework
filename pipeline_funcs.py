@@ -101,7 +101,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
                 }
         else:
             early_stopping_wait+=1    
-            if early_stopping_after_epochs > early_stopping_after_epochs:
+            if early_stopping_wait > early_stopping_after_epochs:
                 print("Early Stopping")
                 break
         
@@ -232,7 +232,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
                 }
         else:
             early_stopping_wait+=1    
-            if early_stopping_after_epochs > early_stopping_after_epochs:
+            if early_stopping_wait > early_stopping_after_epochs:
                 print("Early Stopping")
                 break
         
