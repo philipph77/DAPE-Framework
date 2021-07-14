@@ -163,7 +163,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
             d_true = torch.flatten(d_true)
             y_pred, d_pred = model(x_list)
             y_pred.squeeze_()
-            d_pred.squeeze_()
+            d_pred.squeeze_(1)
             cla_loss = cla_criterion(y_pred, y_true)
             adv_loss = adv_criterion(d_pred, d_true)
             total_loss = cla_loss - lam*adv_loss
@@ -191,7 +191,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
                 d_true = torch.flatten(d_true)
                 y_val_pred, d_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
-                d_val_pred.squeeze_()
+                d_val_pred.squeeze_(1)
                 cla_val_loss += cla_criterion(y_val_pred,y_true).item()
                 adv_val_loss += adv_criterion(d_val_pred,d_true).item()
                 cla_val_acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
