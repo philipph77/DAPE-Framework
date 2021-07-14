@@ -37,4 +37,4 @@ if __name__ == '__main__':
     train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
     validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
 
-    train(model, train_dataloader, validation_dataloader, 'only-seed', '../logs/', max_epochs=1)
+    train(model, train_dataloader, validation_dataloader, 'only-seed', '../logs/', max_epochs=500)
