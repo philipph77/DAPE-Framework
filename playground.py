@@ -28,8 +28,8 @@ if __name__ == '__main__':
 
     model = Framework(encoders, latent_dim, 3, use_adversary=False)
 
-    train_datasource_files = [f for f in train_datasource_files if 'SEED' in f]
-    validation_datasource_files = [f for f in validation_datasource_files if 'SEED' in f]
+    train_datasource_files = [f for f in train_datasource_files if 'SEED.' in f]
+    validation_datasource_files = [f for f in validation_datasource_files if 'SEED.' in f]
 
     training_data = datasets.MultiSourceDataset(train_datasource_files)
     validation_data = datasets.MultiSourceDataset(validation_datasource_files)
@@ -37,4 +37,4 @@ if __name__ == '__main__':
     train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
     validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
 
-    train(model, train_dataloader, validation_dataloader, 'testing_adv', '../logs/', max_epochs=1)
+    train(model, train_dataloader, validation_dataloader, 'only-seed', '../logs/', max_epochs=1)
