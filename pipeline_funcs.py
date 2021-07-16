@@ -282,7 +282,7 @@ def test(model, test_dataloader, run_name, logpath):
     model.eval()
     with torch.no_grad():
         acc = 0.
-        for x_test_list, y_true in test_dataloader:
+        for x_test_list, y_true, _ in test_dataloader:
             x_test_list = [x_i.to(device) for x_i in x_test_list]
             y_true = y_true.to(device)
             y_true = torch.flatten(y_true)
@@ -295,5 +295,52 @@ def test(model, test_dataloader, run_name, logpath):
     with open(os.path.join(logpath, run_name, 'test_logs.csv'), 'a', encoding='UTF8') as f:
         writer = csv.writer(f)
         writer.writerow([str(acc)])
+    
+    return 1
+
+def test_adversarial(model, test_dataloader, run_name, logpath):
+    """Calculates and logs the achieved accuracy of a trained Framework on a testset
+
+    Args:
+        model ([Framework (PyTorch Model)]): The PyTorch Framework, that you want to train
+        test_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the training data
+        run_name ([string]): a unique name, to identify the run later on
+        logpath ([string]): the path, where you want to save the logfiles
+
+    Returns:
+        [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
+    """    
+    if os.path.isfile(os.path.join(logpath, run_name, 'test_logs.csv')):
+        print("LogFile already exists! Rename or remove it, and restart the testing")
+        return 0
+    header = ['CLA Test Accuracy', 'ADV Test Accuracy']
+    with open(os.path.join(logpath, run_name, 'test_logs.csv'), 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    model.eval()
+    with torch.no_grad():
+        cla_test_acc = 0.
+        adv_test_acc = 0.
+        for x_test_list, y_true, d_true in test_dataloader:
+            x_test_list = [x_i.to(device) for x_i in x_test_list]
+            y_true = y_true.to(device)
+            d_true = d_true.to(device)
+            y_true = torch.flatten(y_true)
+            d_true = torch.flatten(d_true)
+            y_test_pred, d_test_pred = model(x_test_list)
+            y_test_pred.squeeze_()
+            d_test_pred.squeeze_(1)
+            cla_test_acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_test_pred.detach().cpu().numpy(), axis=1))
+            adv_test_acc += accuracy_score(d_true.detach().cpu().numpy(), np.argmax(d_test_pred.detach().cpu().numpy(), axis=1))
+    cla_test_acc = cla_test_acc / len(test_dataloader)
+    adv_test_acc = adv_test_acc / len(test_dataloader)
+    print("CLA-Test-Accuracy: %4.2f - ADV-Test_Accuracy: %4.2f"%(cla_test_acc, adv_test_acc))
+
+    with open(os.path.join(logpath, run_name, 'test_logs.csv'), 'a', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow([str(cla_test_acc), str(adv_test_acc)])
     
     return 1

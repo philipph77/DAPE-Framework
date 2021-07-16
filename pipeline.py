@@ -4,13 +4,13 @@ import numpy as np
 import os
 import platform
 import architectures
-from pipeline_funcs import train, train_adversarial, test
+from pipeline_funcs import train, train_adversarial, test, test_adversarial
 from torchinfo import summary
 from multi_source_framework import Framework
 import datasets
+import pipeline_helper
 
-
-def pipeline():
+def pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, **kwargs):
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
     else:
@@ -20,37 +20,66 @@ def pipeline():
     validation_datasource_files = [os.path.join(path,'val', f) for f in sorted(os.listdir(os.path.join(path, 'val'))) if f.endswith('.npz') and not('test' in f)]
     test_datasource_files = [os.path.join(path,'test', f) for f in sorted(os.listdir(os.path.join(path, 'test'))) if f.endswith('.npz') and not('test' in f)]
 
-    batch_size = 4*64
-    F1, D, F2 = 32, 16, 8
-    latent_dim = 20
+    # Select only relevant datasource_files    
+    data_sources = sorted(data_sources)
+    train_datasource_files = pipeline_helper.filter_datasource_files(train_datasource_files, data_sources)
+    validation_datasource_files = pipeline_helper.filter_datasource_files(train_datasource_files, data_sources)
+    test_datasource_files = pipeline_helper.filter_datasource_files(test_datasource_files, data_sources)
 
-    encoders = [
-        architectures.EEGNetEncoder(channels=32, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False), #DEAP
-        architectures.EEGNetEncoder(channels=14, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False),  #DREAMER
-        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False), #SEED
-        architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False) #SEED-IV
-    ]
-    model = Framework(encoders, 20, 3)
+    # build the encoder list
+    encoders = pipeline_helper.generate_encoder_list(encoder, latent_dim, test_datasource_files, **kwargs)
+
+    model = Framework(encoders, latent_dim, 3, adversarial)
 
     training_data = datasets.MultiSourceDataset(train_datasource_files)
     validation_data = datasets.MultiSourceDataset(validation_datasource_files)
-    batch_sizes = 2**np.arange(4,11)
-    batch_sizes = batch_sizes.tolist()
-    num_workers = np.arange(1,9).tolist()
 
     train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
     validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
-    if train(model, train_dataloader, validation_dataloader, 'testing_arround', '../logs/', max_epochs=1, early_stopping_after_epochs=1):
-        model.is_trained = True
 
-    best_state = torch.load(os.path.join('../logs/', 'testing_arround', 'best_model.pt'))
+    if adversarial:
+        train_adversarial(model, train_dataloader, validation_dataloader, run_name, '../logs/', 0.05, max_epochs=300)
+    else:
+        train(model, train_dataloader, validation_dataloader, run_name, '../logs/', max_epochs=300)
+
+    best_state = torch.load(os.path.join('../logs/', run_name, 'best_model.pt'))
     model.load_state_dict(best_state['state_dict'])
 
     test_data = datasets.MultiSourceDataset(test_datasource_files)
     test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
-    test(model, test_dataloader, 'testing_arround', '../logs')
 
+    if adversarial:
+        test_adversarial(model, test_dataloader, run_name, '../logs/')
+    else:
+        test(model, test_dataloader, run_name, '../logs/')
+
+def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, **kwargs):
+    try:
+        pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, **kwargs)
+    except Exception as e:
+        pipeline_helper.send_mail_notification('Fehler', run_name)
+        print(e)
 
 if __name__ == '__main__':
-    pipeline()
+    F1, D, F2, dropout_p = 32, 16, 8, 0.5
+    eeg_encoder_args = F1, D, F2
+
+    pipeline(['SEED'], architectures.EEGNetEncoder, 2000, False, 'EEG-1000-2000-noa', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
+    pipeline_saverun(['SEED'], architectures.EEGNetEncoder, 1000, False, 'EEG-1000-1000-noa', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
+    pipeline_saverun(['SEED'], architectures.EEGNetEncoder, 1000, True, 'EEG-1000-1000-adv-005', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
+
+    pipeline_saverun(['SEED'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1000-1000-noa')
+    pipeline_saverun(['SEED'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1000-1000-adv-005')
+
+    pipeline_saverun(['SEED'], architectures.DeepConvNetEncoder, 2000, False, 'DCN-1000-2000-noa')
+    pipeline_saverun(['SEED_IV'], architectures.DeepConvNetEncoder, 2000, False, 'DCN-0100-2000-noa')
+    pipeline_saverun(['DEAP'], architectures.DeepConvNetEncoder, 2000, False, 'DCN-0010-2000-noa')
+    pipeline_saverun(['DREAMER'], architectures.DeepConvNetEncoder, 2000, False, 'DCN-0001-2000-noa')
+
+    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1100-1000-noa')
+    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1111-1000-noa')
+
+    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1100-1000-adv-005')
+    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1111-1000-adv-005')
+
     
