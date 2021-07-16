@@ -125,10 +125,19 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
         [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
     """    
     #setup
+    torch.autograd.set_detect_anomaly(True)
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     #torch.backends.cudnn.benchmark = True
-    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    # TODO: make the following optimizer for all except the adversary
+    enc_params = list()
+    for i in range(model.num_datasources):
+        enc_params += list(model.building_blocks[i].parameters())
+    #enc_params = [model.building_blocks[i].parameters() for i in range(model.num_datasources)]
+    cla_params = model.building_blocks[-1].parameters()
+    adv_params = model.building_blocks[-2].parameters()
+    cla_optimizer = optim.Adam(list(enc_params) + list(cla_params), lr=1e-3, weight_decay=1e-4)
+    adv_optimizer = optim.Adam(adv_params, lr=1e-3, weight_decay=1e-4) 
     cla_criterion = nn.CrossEntropyLoss()
     adv_criterion = nn.CrossEntropyLoss()
     min_total_loss = np.infty
@@ -153,7 +162,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
         cla_train_loss = 0.
         adv_train_loss = 0.
         total_train_loss = 0.
-        for x_list,y_true, d_true in tqdm(train_dataloader):
+        for x_list, y_true, d_true in tqdm(train_dataloader):
             #optimizer.zero_grad()
             for param in model.parameters():
                 param.grad = None
@@ -165,11 +174,18 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
             y_pred, d_pred = model(x_list)
             y_pred.squeeze_()
             d_pred.squeeze_(1)
+            adv_loss = adv_criterion(d_pred, d_true)
+            adv_loss.backward()
+            adv_optimizer.step()
+            cla_optimizer.zero_grad()
+            y_pred, d_pred = model(x_list)
+            y_pred.squeeze_()
+            d_pred.squeeze_(1)
             cla_loss = cla_criterion(y_pred, y_true)
             adv_loss = adv_criterion(d_pred, d_true)
             total_loss = cla_loss - lam*adv_loss
             total_loss.backward()
-            optimizer.step()
+            cla_optimizer.step()
             cla_train_loss += cla_loss.item()
             adv_train_loss += adv_loss.item()
             total_train_loss += total_loss.item()
