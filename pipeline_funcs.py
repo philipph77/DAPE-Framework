@@ -244,7 +244,8 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
                     'adv_val_loss': adv_val_loss,
                     'cla_val_acc': cla_val_acc,
                     'adv_val_acc': adv_val_acc,
-                    'optimizer' : optimizer.state_dict(),
+                    'cla_optimizer' : cla_optimizer.state_dict(),
+                    'adv_optimizer' : adv_optimizer.state_dict(),
                     'lam': lam,
                 }
         else:
