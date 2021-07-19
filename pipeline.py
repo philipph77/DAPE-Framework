@@ -10,7 +10,7 @@ from multi_source_framework import Framework
 import datasets
 import pipeline_helper
 
-def pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, **kwargs):
+def pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, lam=0., **kwargs):
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
     else:
@@ -38,7 +38,7 @@ def pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, **kwargs)
     validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
 
     if adversarial:
-        train_adversarial(model, train_dataloader, validation_dataloader, run_name, '../logs/', 0.05, max_epochs=300)
+        train_adversarial(model, train_dataloader, validation_dataloader, run_name, '../logs/', lam, max_epochs=300)
     else:
         train(model, train_dataloader, validation_dataloader, run_name, '../logs/', max_epochs=300)
 
@@ -53,9 +53,9 @@ def pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, **kwargs)
     else:
         test(model, test_dataloader, run_name, '../logs/')
 
-def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, **kwargs):
+def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, lam=0., **kwargs):
     try:
-        pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, **kwargs)
+        pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, lam, **kwargs)
     except Exception as e:
         pipeline_helper.send_mail_notification('Fehler', run_name)
         print(e)
@@ -64,6 +64,7 @@ if __name__ == '__main__':
     F1, D, F2, dropout_p = 32, 16, 8, 0.5
     eeg_encoder_args = F1, D, F2
 
+    '''
     pipeline(['SEED'], architectures.EEGNetEncoder, 2000, False, 'EEG-1000-2000-noa', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
     pipeline_saverun(['SEED'], architectures.EEGNetEncoder, 1000, False, 'EEG-1000-1000-noa', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
     pipeline_saverun(['SEED'], architectures.EEGNetEncoder, 1000, True, 'EEG-1000-1000-adv-005', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
@@ -80,6 +81,7 @@ if __name__ == '__main__':
     pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1111-1000-noa')
 
     pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1100-1000-adv-005')
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1111-1000-adv-005')
+    '''
+    pipeline(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1111-1000-adv-0005', lam=0.005)
 
     

@@ -108,7 +108,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
     torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
     return 1
 
-def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam, max_epochs=500, early_stopping_after_epochs=50):
+def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam=0.05, max_epochs=500, early_stopping_after_epochs=50):
     """Trains a Multi-Source Framework and logs relevant data to file
 
     Args:
