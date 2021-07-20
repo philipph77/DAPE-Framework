@@ -56,7 +56,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
                 param.grad = None
             x_list = [x_i.to(device) for x_i in x_list]
             y_true = y_true.to(device)
-            y_true = torch.flatten(y_true)
+            y_true = torch.flatten(torch.transpose(y_true,0,1))
             y_pred = model(x_list)
             y_pred.squeeze_()
             loss = criterion(y_pred, y_true)
@@ -72,7 +72,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
             for x_val_list, y_true, _ in validation_dataloader:
                 x_val_list = [x_i.to(device) for x_i in x_val_list]
                 y_true = y_true.to(device)
-                y_true = torch.flatten(y_true)
+                y_true = torch.flatten(torch.transpose(y_true,0,1))
                 y_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
                 val_loss += criterion(y_val_pred,y_true).item()
@@ -131,11 +131,10 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
     #torch.backends.cudnn.benchmark = True
     # TODO: make the following optimizer for all except the adversary
     enc_params = list()
-    for i in range(model.num_datasources):
-        enc_params += list(model.building_blocks[i].parameters())
-    #enc_params = [model.building_blocks[i].parameters() for i in range(model.num_datasources)]
-    cla_params = model.building_blocks[-1].parameters()
-    adv_params = model.building_blocks[-2].parameters()
+    for i in range(len(model.encoders)):
+        enc_params += list(model.encoders[i].parameters())
+    cla_params = model.emotion_classifier[0].parameters()
+    adv_params = model.domain_classifier[0].parameters()
     cla_optimizer = optim.Adam(list(enc_params) + list(cla_params), lr=1e-3, weight_decay=1e-4)
     adv_optimizer = optim.Adam(adv_params, lr=1e-3, weight_decay=1e-4) 
     cla_criterion = nn.CrossEntropyLoss()
@@ -169,8 +168,8 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
             x_list = [x_i.to(device) for x_i in x_list]
             y_true = y_true.to(device)
             d_true = d_true.to(device)
-            y_true = torch.flatten(y_true)
-            d_true = torch.flatten(d_true)
+            y_true = torch.flatten(torch.transpose(y_true,0,1))
+            d_true = torch.flatten(torch.transpose(d_true,0,1))
             y_pred, d_pred = model(x_list)
             y_pred.squeeze_()
             d_pred.squeeze_(1)
@@ -204,8 +203,8 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
                 x_val_list = [x_i.to(device) for x_i in x_val_list]
                 y_true = y_true.to(device)
                 d_true = d_true.to(device)
-                y_true = torch.flatten(y_true)
-                d_true = torch.flatten(d_true)
+                y_true = torch.flatten(torch.transpose(y_true,0,1))
+                d_true = torch.flatten(torch.transpose(d_true,0,1))
                 y_val_pred, d_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
                 d_val_pred.squeeze_(1)
@@ -285,7 +284,7 @@ def test(model, test_dataloader, run_name, logpath):
         for x_test_list, y_true, _ in test_dataloader:
             x_test_list = [x_i.to(device) for x_i in x_test_list]
             y_true = y_true.to(device)
-            y_true = torch.flatten(y_true)
+            y_true = torch.flatten(torch.transpose(y_true,0,1))
             y_test_pred = model(x_test_list)
             y_test_pred.squeeze_()
             acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_test_pred.detach().cpu().numpy(), axis=1))
@@ -328,8 +327,8 @@ def test_adversarial(model, test_dataloader, run_name, logpath):
             x_test_list = [x_i.to(device) for x_i in x_test_list]
             y_true = y_true.to(device)
             d_true = d_true.to(device)
-            y_true = torch.flatten(y_true)
-            d_true = torch.flatten(d_true)
+            y_true = torch.flatten(torch.transpose(y_true,0,1))
+            d_true = torch.flatten(torch.transpose(d_true,0,1))
             y_test_pred, d_test_pred = model(x_test_list)
             y_test_pred.squeeze_()
             d_test_pred.squeeze_(1)
@@ -343,4 +342,100 @@ def test_adversarial(model, test_dataloader, run_name, logpath):
         writer = csv.writer(f)
         writer.writerow([str(cla_test_acc), str(adv_test_acc)])
     
+    return 1
+
+def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=25):
+    #setup
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+
+    optimizers = list()
+    criteria = list()
+    min_losses = list()
+    for encoder_id in len(model.encoders):
+        optimizers.append(optim.Adam(optim.Adam(list(model.encoders[encoder_id].parameters()) + list(model.individual_classifiers[encoder_id].parameters()), lr=1e-3, weight_decay=1e-4), lr=1e-3, weight_decay=1e-4))
+        criteria.append(nn.CrossEntropyLoss())
+        min_losses.append(np.infty)
+
+    # Prepare Logging
+    if not (os.path.isdir(os.path.join(logpath, run_name))):
+        os.makedirs(os.path.join(logpath, run_name))
+
+    elif os.path.isfile(os.path.join(logpath, run_name, 'pretrain_logs.csv')):
+        print("LogFile already exists! Rename or remove it, and restart the training")
+        return 0
+    header = ['Epoch', 'Data-Source-ID', 'Train-Loss', 'Validation-Loss', 'Validation-Accuracy']
+    with open(os.path.join(logpath, run_name, 'pretrain_logs.csv'), 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+
+    for epoch in range(1,max_epochs+1):
+        # Training
+        model.train()
+        start_time = time.time()
+        train_loss = list()
+        loss = list()
+        for _ in range(len(model.encoders)):
+            train_loss.append(0.)
+            loss.append(None)
+        for x_list,y_true, _ in tqdm(train_dataloader):
+            #optimizer.zero_grad()
+            for param in model.parameters():
+                param.grad = None
+            x_list = [x_i.to(device) for x_i in x_list]
+            # TODO: y_true in liste umwandeln!
+            print(type(y_true))
+            print(y_true)
+            raise(NotImplementedError)
+            y_true = y_true.to(device)
+            y_true = torch.flatten(torch.transpose(y_true,0,1))
+            _, y_pred_individual = model(x_list, individual_outputs=True)
+            for i in range(len(y_pred_individual)):
+                y_pred_individual[i].squeeze_()
+                loss[i] = criteria[i](y_pred_individual[i], y_true[i])
+                loss[i].backward()
+                optimizers[i].step()
+                train_loss[i] += loss.item()
+        train_loss = [l/len(train_dataloader) for l in train_loss]
+        # Validation
+        model.eval()
+        with torch.no_grad():
+            val_los = list()
+            val_acc = list()
+            for _ in range(len(model.encoders)):
+                val_loss.append(0.)
+                val_acc.append(0.)
+            for x_val_list, y_true, _ in validation_dataloader:
+                x_val_list = [x_i.to(device) for x_i in x_val_list]
+                # TODO: y_true in liste zerlegen
+                y_true = y_true.to(device)
+                y_true = torch.flatten(torch.transpose(y_true,0,1))
+                y_val_pred = model(x_val_list, individual_oututs=True)
+            for i in range(len(y_val_pred)):
+                y_val_pred[i].squeeze_()
+                val_loss[i] += criteria[i](y_val_pred[i],y_true[i]).item()
+                val_acc[i] += accuracy_score(y_true[i].detach().cpu().numpy(), np.argmax(y_val_pred[i].detach().cpu().numpy(), axis=1))
+        val_loss = [vl / len(validation_dataloader) for vl in val_loss]
+        val_acc = [va / len(validation_dataloader) for va in val_acc]
+        end_time = time.time()
+
+        # Logging
+        print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(run_name, epoch, train_loss, val_loss, val_acc, end_time-start_time))
+        with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
+            writer = csv.writer(f)
+            writer.writerow([str(epoch), str(train_loss), str(val_loss), str(val_acc)])
+
+        # Early Stopping
+        if val_loss < min_loss:
+            min_loss = val_loss
+            best_state = {
+                    'epoch': epoch,
+                    'state_dict': model.state_dict(),
+                    'train_loss': train_loss,
+                    'val_loss': val_loss,
+                    'val_acc': val_acc,
+                    #'optimizer' : optimizer.state_dict(),
+                }
+        
+    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
     return 1

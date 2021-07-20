@@ -64,33 +64,16 @@ if __name__ == '__main__':
     F1, D, F2, dropout_p = 32, 16, 8, 0.5
     eeg_encoder_args = F1, D, F2
 
-    '''
-    pipeline(['SEED'], architectures.EEGNetEncoder, 2000, False, 'EEG-1000-2000-noa', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
-    pipeline_saverun(['SEED'], architectures.EEGNetEncoder, 1000, False, 'EEG-1000-1000-noa', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
-    pipeline_saverun(['SEED'], architectures.EEGNetEncoder, 1000, True, 'EEG-1000-1000-adv-005', temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.5)
-
-    pipeline_saverun(['SEED'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1000-1000-noa')
-    pipeline_saverun(['SEED'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1000-1000-adv-005')
-
-    pipeline_saverun(['SEED'], architectures.DeepConvNetEncoder, 2000, False, 'DCN-1000-2000-noa')
-    pipeline_saverun(['SEED_IV'], architectures.DeepConvNetEncoder, 2000, False, 'DCN-0100-2000-noa')
-    pipeline_saverun(['DEAP'], architectures.DeepConvNetEncoder, 2000, False, 'DCN-0010-2000-noa')
-    pipeline_saverun(['DREAMER'], architectures.DeepConvNetEncoder, 2000, False, 'DCN-0001-2000-noa')
-
     pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1100-1000-noa')
+    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 500, False, 'DCN-1100-500-noa')
+    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 100, False, 'DCN-1100-100-noa')
+    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 50, False, 'DCN-1100-50-noa')
     pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1111-1000-noa')
+    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 500, False, 'DCN-1111-500-noa')
+    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 100, False, 'DCN-1111-100-noa')
+    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 50, False, 'DCN-1111-50-noa')
 
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1100-1000-adv-005')
-    '''
+    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1100-1000-adv-005', lam=0.05)
     pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1100-1000-adv-000', lam=0.0)
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1111-1000-adv-000', lam=0.0)
-
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 500, False, 'DCN-1100-500-noa', lam=0.0)
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 500, False, 'DCN-1111-500-noa', lam=0.0)
-
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 100, False, 'DCN-1100-100-noa', lam=0.0)
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 100, False, 'DCN-1111-100-noa', lam=0.0)
-
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 50, False, 'DCN-1100-50-noa', lam=0.0)
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 50, False, 'DCN-1111-50-noa', lam=0.0)
-    
+    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, True, 'delete_DCN-1111-1000-adv-005', lam=0.05)
+    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, True, 'delete_DCN-1111-1000-adv-000', lam=0.0)

@@ -20,41 +20,54 @@ class Framework(nn.Module):
         self.num_datasources = len(encoders)
         self.is_trained = False
         self.use_adversary = use_adversary
-        self.building_blocks = nn.ModuleList()
-        self.building_blocks.extend(encoders)
+        self.encoders = nn.ModuleList()
+        self.encoders.extend(encoders)
+        self.emotion_classifier = nn.ModuleList()
+        self.emotion_classifier.append(architectures.DenseClassifier(latent_dim, num_classes)) # Emotion Classifier
         if self.use_adversary:
-            self.building_blocks.append(architectures.DenseClassifier(latent_dim, self.num_datasources)) # Adversary
-        self.building_blocks.append(architectures.DenseClassifier(latent_dim, num_classes)) # Emotion Classifier
+            self.domain_classifier = nn.ModuleList()
+            self.domain_classifier.append(architectures.DenseClassifier(latent_dim, self.num_datasources)) # Adversary
+        self.individual_classifiers = nn.ModuleList()
+        for _ in range(len(encoders)):
+            self.individual_classifiers.append(architectures.DenseClassifier(latent_dim, num_classes)) # Individual Classifiers
 
-    def forward(self, x_list):
-        if self.use_adversary:
-            assert len(self.building_blocks) - 2 ==len(x_list)
-        else:
-            assert len(self.building_blocks) - 1 == len(x_list)
+    def forward(self, x_list, individual_outputs=False):
+        assert len(self.encoders) ==len(x_list)
 
         z_list = list()
         for datasource_id, x_i in enumerate(x_list):
-            z_i = self.building_blocks[datasource_id](x_i)
+            z_i = self.encoders[datasource_id](x_i)
             z_list.append(z_i)
-
-        # concatenate the outputs
+        
+        # pass z through the individual classifiers
+        y_pred_individual_list = list()
+        for datasource_id, z_i in enumerate(z_list):
+            y_pred_individual = self.individual_classifiers[datasource_id](z_i)
+            y_pred_individual_list.append(y_pred_individual)
+        
+        # concatenate the latent representation
         z = torch.cat(z_list, dim=0)
 
         # pass z through the classifier
-        y_pred = self.building_blocks[-1](z)
+        y_pred = self.emotion_classifier[0](z)
+
+        return_value = y_pred
 
         if self.use_adversary:
-            d_pred = self.building_blocks[-2](z)
-            return y_pred, d_pred
+            d_pred = self.domain_classifier[0](z)
+            return_value = return_value, d_pred
+        
+        if individual_outputs:
+            return_value = return_value, y_pred_individual_list
 
-        return y_pred
+        return return_value
 
     def add_encoder(self, encoder):
         # ATTENTION: THIS IS NOT SUPPORTED YET!
         if self.is_trained:
             for param in self.parameters():
                 param.requires_grad = False
-        self.building_blocks.insert(self.num_datasources, encoder)
+        self.encoders.append(encoder)
 
     def get_config(self):
         pass
