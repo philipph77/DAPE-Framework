@@ -61,19 +61,12 @@ def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, l
         print(e)
 
 if __name__ == '__main__':
-    F1, D, F2, dropout_p = 32, 16, 8, 0.5
-    eeg_encoder_args = F1, D, F2
+    runs_per_config = 3
+    pretrains = [False, True]
+    latent_dims = [50, 100, 500]
 
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1100-1000-noa')
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 500, False, 'DCN-1100-500-noa')
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 100, False, 'DCN-1100-100-noa')
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 50, False, 'DCN-1100-50-noa')
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, False, 'DCN-1111-1000-noa')
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 500, False, 'DCN-1111-500-noa')
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 100, False, 'DCN-1111-100-noa')
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 50, False, 'DCN-1111-50-noa')
-
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1100-1000-adv-005', lam=0.05)
-    pipeline_saverun(['SEED', 'SEED_IV'], architectures.DeepConvNetEncoder, 1000, True, 'DCN-1100-1000-adv-000', lam=0.0)
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, True, 'delete_DCN-1111-1000-adv-005', lam=0.05)
-    pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 1000, True, 'delete_DCN-1111-1000-adv-000', lam=0.0)
+    for pretrain in pretrains:
+        for latent_dim in latent_dims:
+            for i in range(runs_per_config):
+                run_name = "DCN-1111-%i-noa-%i-%i"%(latent_dim, pretrain ,i)
+                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, latent_dim, False, run_name)
