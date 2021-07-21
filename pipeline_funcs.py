@@ -351,11 +351,11 @@ def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, 
 
     optimizers = list()
     criteria = list()
-    min_losses = list()
-    for encoder_id in len(model.encoders):
-        optimizers.append(optim.Adam(optim.Adam(list(model.encoders[encoder_id].parameters()) + list(model.individual_classifiers[encoder_id].parameters()), lr=1e-3, weight_decay=1e-4), lr=1e-3, weight_decay=1e-4))
+    min_loss = list()
+    for encoder_id, encoder in enumerate(model.encoders):
+        optimizers.append(optim.Adam(list(encoder.parameters()) + list(model.individual_classifiers[encoder_id].parameters()), lr=1e-3, weight_decay=1e-4))
         criteria.append(nn.CrossEntropyLoss())
-        min_losses.append(np.infty)
+        min_loss.append(np.infty)
 
     # Prepare Logging
     if not (os.path.isdir(os.path.join(logpath, run_name))):
@@ -372,70 +372,72 @@ def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, 
     for epoch in range(1,max_epochs+1):
         # Training
         model.train()
-        start_time = time.time()
         train_loss = list()
         loss = list()
+        best_state = list()
         for _ in range(len(model.encoders)):
             train_loss.append(0.)
             loss.append(None)
+            best_state.append(None)
         for x_list,y_true, _ in tqdm(train_dataloader):
             #optimizer.zero_grad()
             for param in model.parameters():
                 param.grad = None
             x_list = [x_i.to(device) for x_i in x_list]
-            # TODO: y_true in liste umwandeln!
-            print(type(y_true))
-            print(y_true)
-            raise(NotImplementedError)
-            y_true = y_true.to(device)
-            y_true = torch.flatten(torch.transpose(y_true,0,1))
+            y_true_list = list()
+            for i in range(y_true.shape[1]):
+                y_true_list.append(y_true[:,i])
+            y_true_list = [y_true_i.to(device) for y_true_i in y_true_list]
             _, y_pred_individual = model(x_list, individual_outputs=True)
             for i in range(len(y_pred_individual)):
                 y_pred_individual[i].squeeze_()
-                loss[i] = criteria[i](y_pred_individual[i], y_true[i])
+                loss[i] = criteria[i](y_pred_individual[i], y_true_list[i])
                 loss[i].backward()
                 optimizers[i].step()
-                train_loss[i] += loss.item()
+                train_loss[i] += loss[i].item()
         train_loss = [l/len(train_dataloader) for l in train_loss]
         # Validation
         model.eval()
         with torch.no_grad():
-            val_los = list()
+            val_loss = list()
             val_acc = list()
             for _ in range(len(model.encoders)):
                 val_loss.append(0.)
                 val_acc.append(0.)
             for x_val_list, y_true, _ in validation_dataloader:
                 x_val_list = [x_i.to(device) for x_i in x_val_list]
-                # TODO: y_true in liste zerlegen
-                y_true = y_true.to(device)
-                y_true = torch.flatten(torch.transpose(y_true,0,1))
-                y_val_pred = model(x_val_list, individual_oututs=True)
-            for i in range(len(y_val_pred)):
-                y_val_pred[i].squeeze_()
-                val_loss[i] += criteria[i](y_val_pred[i],y_true[i]).item()
-                val_acc[i] += accuracy_score(y_true[i].detach().cpu().numpy(), np.argmax(y_val_pred[i].detach().cpu().numpy(), axis=1))
+                y_true_list = list()
+                for i in range(y_true.shape[1]):
+                    y_true_list.append(y_true[:,i])
+                y_true_list = [y_true_i.to(device) for y_true_i in y_true_list]
+                _, y_val_pred = model(x_val_list, individual_outputs=True)
+                for i in range(len(y_val_pred)):
+                    y_val_pred[i].squeeze_()
+                    val_loss[i] += criteria[i](y_val_pred[i],y_true_list[i]).item()
+                    val_acc[i] += accuracy_score(y_true_list[i].detach().cpu().numpy(), np.argmax(y_val_pred[i].detach().cpu().numpy(), axis=1))
         val_loss = [vl / len(validation_dataloader) for vl in val_loss]
         val_acc = [va / len(validation_dataloader) for va in val_acc]
-        end_time = time.time()
 
         # Logging
-        print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(run_name, epoch, train_loss, val_loss, val_acc, end_time-start_time))
-        with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
-            writer = csv.writer(f)
-            writer.writerow([str(epoch), str(train_loss), str(val_loss), str(val_acc)])
-
-        # Early Stopping
-        if val_loss < min_loss:
-            min_loss = val_loss
-            best_state = {
-                    'epoch': epoch,
-                    'state_dict': model.state_dict(),
-                    'train_loss': train_loss,
-                    'val_loss': val_loss,
-                    'val_acc': val_acc,
-                    #'optimizer' : optimizer.state_dict(),
-                }
+        for i, encoder in enumerate(model.encoders):
+            print("[%s-%i] Pretrain-Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f"%(run_name, i, epoch, train_loss[i], val_loss[i], val_acc[i]))
+            with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
+                writer = csv.writer(f)
+                writer.writerow([str(epoch), str(i), str(train_loss[i]), str(val_loss[i]), str(val_acc[i])])
+            if val_loss[i] < min_loss[i]:
+                min_loss[i] = val_loss[i]
+                best_state[i] = {
+                        'data_source_id': i,
+                        'epoch': epoch,
+                        'encoder_state_dict': encoder.state_dict(),
+                        'classifier_state_dict': model.individual_classifiers[i].state_dict(),
+                        'train_loss': train_loss[i],
+                        'val_loss': val_loss[i],
+                        'val_acc': val_acc[i],
+                        'optimizer' : optimizers[i].state_dict(),
+                    }
         
-    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
+    for i in range(len(model.encoders)):
+        torch.save(best_state[i], os.path.join(logpath, run_name, 'pretrained_encoder_'+str(i)+'.pt'))
+    
     return 1
