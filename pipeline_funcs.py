@@ -9,7 +9,7 @@ from tqdm import trange, tqdm
 import csv
 
 
-def train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=500, early_stopping_after_epochs=50):
+def train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=500, early_stopping_after_epochs=20):
     """Trains a Multi-Source Framework and logs relevant data to file
 
     Args:
@@ -19,7 +19,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
         run_name ([string]): a unique name, to identify the run later on
         logpath ([string]): the path, where you want to save the logfiles
         max_epochs (int, optional): Maximum number of epochs you want to train. Defaults to 500.
-        early_stopping_after_epochs (int, optional): The number of epochs without improvement in validation loss, the training should be stopped afer. Defaults to 50.
+        early_stopping_after_epochs (int, optional): The number of epochs without improvement in validation loss, the training should be stopped afer. Defaults to 20.
 
     Returns:
         [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
@@ -108,7 +108,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
     torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
     return 1
 
-def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam=0.05, max_epochs=500, early_stopping_after_epochs=50):
+def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam=0.05, max_epochs=500, early_stopping_after_epochs=20):
     """Trains a Multi-Source Framework and logs relevant data to file
 
     Args:
@@ -119,7 +119,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
         logpath ([string]): the path, where you want to save the logfiles
         lam ([float]): loss weight for the adversary
         max_epochs (int, optional): Maximum number of epochs you want to train. Defaults to 500.
-        early_stopping_after_epochs (int, optional): The number of epochs without improvement in validation loss, the training should be stopped afer. Defaults to 50.
+        early_stopping_after_epochs (int, optional): The number of epochs without improvement in validation loss, the training should be stopped afer. Defaults to 20.
 
     Returns:
         [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
