@@ -10,7 +10,7 @@ from multi_source_framework import Framework
 import datasets
 import pipeline_helper
 
-def pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, lam=0., **kwargs):
+def pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, lam=0., logpath='../logs/', **kwargs):
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
     else:
@@ -38,20 +38,20 @@ def pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, lam=0., *
     validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
 
     if adversarial:
-        train_adversarial(model, train_dataloader, validation_dataloader, run_name, '../logs/', lam, max_epochs=300)
+        train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam, max_epochs=300)
     else:
-        train(model, train_dataloader, validation_dataloader, run_name, '../logs/', max_epochs=300)
+        train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=300)
 
-    best_state = torch.load(os.path.join('../logs/', run_name, 'best_model.pt'))
+    best_state = torch.load(os.path.join(logpath, run_name, 'best_model.pt'))
     model.load_state_dict(best_state['state_dict'])
 
     test_data = datasets.MultiSourceDataset(test_datasource_files)
     test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
 
     if adversarial:
-        test_adversarial(model, test_dataloader, run_name, '../logs/')
+        test_adversarial(model, test_dataloader, run_name, logpath)
     else:
-        test(model, test_dataloader, run_name, '../logs/')
+        test(model, test_dataloader, run_name, logpath)
 
 def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, lam=0., **kwargs):
     try:
@@ -61,12 +61,8 @@ def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, l
         print(e)
 
 if __name__ == '__main__':
-    runs_per_config = 3
-    pretrains = [False, True]
-    latent_dims = [50, 100, 500]
+    lambdas = [0.05, 0.1, 0.2, 0.3, 0.4 ,0.5, 0.6, 0.7, 0.8, 0.9, 1., 2., 3., 4., 5., 10.]
 
-    for pretrain in pretrains:
-        for latent_dim in latent_dims:
-            for i in range(runs_per_config):
-                run_name = "DCN-1111-%i-noa-%i-%i"%(latent_dim, pretrain ,i)
-                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, latent_dim, False, run_name)
+    for lam in lambdas:
+        run_name = "DCN-1111-50-adv-%2.2f-v2"%(lam)
+        pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 50, True, run_name, lam=lam, logpath='../logs_v2/')
