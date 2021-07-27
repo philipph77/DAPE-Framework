@@ -81,6 +81,8 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0):
         
             bandwidth_range = [10, 15, 20, 50]
             for a in bandwidth_range:
+                temp = dxx/a
+                temp = XX + dxx
                 XX += torch.exp(-0.5*dxx/a)
                 YY += torch.exp(-0.5*dyy/a)
                 XY += torch.exp(-0.5*dxy/a)
