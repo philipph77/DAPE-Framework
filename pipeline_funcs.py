@@ -7,6 +7,7 @@ from sklearn.metrics import accuracy_score
 import time
 from tqdm import trange, tqdm
 import csv
+from pipeline_helper import MMD_loss
 
 
 def train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=500, early_stopping_after_epochs=20):
@@ -440,4 +441,123 @@ def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, 
     for i in range(len(model.encoders)):
         torch.save(best_state[i], os.path.join(logpath, run_name, 'pretrained_encoder_'+str(i)+'.pt'))
     
+    return 1
+
+def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa = 0.05, max_epochs=500, early_stopping_after_epochs=20):
+    """Trains a Multi-Source Framework and logs relevant data to file
+        A Maximum-Mean-Discrepancy-Loss Term is added to the CE-Loss, in order to align the distributions from the encoder
+    Args:
+        model ([Framework (PyTorch Model)]): The PyTorch Framework, that you want to train
+        train_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the training data
+        validation_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the testing data
+        run_name ([string]): a unique name, to identify the run later on
+        logpath ([string]): the path, where you want to save the logfiles
+        max_epochs (int, optional): Maximum number of epochs you want to train. Defaults to 500.
+        early_stopping_after_epochs (int, optional): The number of epochs without improvement in validation loss, the training should be stopped afer. Defaults to 20.
+
+    Returns:
+        [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
+    """    
+    #setup
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    #torch.backends.cudnn.benchmark = True
+    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    criterion = nn.CrossEntropyLoss()
+    min_loss = np.infty
+    early_stopping_wait = 0
+
+    # Prepare Logging
+    if not (os.path.isdir(os.path.join(logpath, run_name))):
+        os.makedirs(os.path.join(logpath, run_name))
+
+    elif os.path.isfile(os.path.join(logpath, run_name, 'logs.csv')):
+        print("LogFile already exists! Rename or remove it, and restart the training")
+        return 0
+    header = ['Epoch', 'Total-Train-Loss', 'CLA-Train-Loss', 'MMD-Train-Loss', 'Total-Validation-Loss', 'CLA-Validation-Loss', 'MMD-Validation-Loss', 'Validation-Accuracy']
+    with open(os.path.join(logpath, run_name, 'logs.csv'), 'w', encoding='UTF8') as f:
+        writer = csv.writer(f)
+        writer.writerow(header)
+
+    for epoch in range(1,max_epochs+1):
+        # Training
+        model.train()
+        start_time = time.time()
+        total_train_loss = 0.
+        total_mmd_loss = 0.
+        total_ce_loss = 0.
+        for x_list,y_true, _ in tqdm(train_dataloader):
+            #optimizer.zero_grad()
+            for param in model.parameters():
+                param.grad = None
+            x_list = [x_i.to(device) for x_i in x_list]
+            y_true = y_true.to(device)
+            y_true = torch.flatten(torch.transpose(y_true,0,1))
+            y_pred, z_list = model(x_list, output_latent_representation=True)
+            y_pred.squeeze_()
+            ce_loss = criterion(y_pred, y_true)
+            mmd_loss = MMD_loss(z_list, 'rbf', 4)
+            total_loss = ce_loss + kappa * mmd_loss
+            total_loss.backward()
+            optimizer.step()
+            total_ce_loss += ce_loss.item()
+            total_mmd_loss += mmd_loss.item()
+            total_train_loss += total_loss.item()
+        total_ce_loss = total_ce_loss / len(train_dataloader)
+        total_mmd_loss = total_mmd_loss / len(train_dataloader)
+        total_train_loss = total_train_loss / len(train_dataloader)
+        # Validation
+        model.eval()
+        with torch.no_grad():
+            total_val_loss = 0.
+            total_val_mmd_loss = 0.
+            total_val_ce_loss = 0.
+            val_acc = 0.
+            for x_val_list, y_true, _ in validation_dataloader:
+                x_val_list = [x_i.to(device) for x_i in x_val_list]
+                y_true = y_true.to(device)
+                y_true = torch.flatten(torch.transpose(y_true,0,1))
+                y_val_pred, z_val_list = model(x_val_list, output_latent_representation=True)
+                y_val_pred.squeeze_()
+                total_val_ce_loss += criterion(y_val_pred,y_true).item()
+                total_val_mmd_loss += MMD_loss(z_val_list, 'rbf', 4).item()
+                val_acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
+        total_val_ce_loss = total_val_ce_loss / len(validation_dataloader)
+        total_val_mmd_loss = total_val_mmd_loss / len(validation_dataloader)
+        total_val_loss += total_val_ce_loss + kappa * total_val_mmd_loss
+        val_acc = val_acc / len(validation_dataloader)
+        end_time = time.time()
+
+        # Logging
+        header = ['Epoch', 'Total-Train-Loss', 'CLA-Train-Loss', 'MMD-Train-Loss', 'Total-Validation-Loss', 'CLA-Validation-Loss', 'MMD-Validation-Loss', 'Validation-Accuracy']
+        print("[%s] Epoch %i: - Total-Train-Loss: %4.2f - CLA-Train-Loss: %4.2f - MMD-Train-Loss: %4.2f - Total-Val-Loss: %4.2f - CLA-Val-Loss: %4.2f - MMD-Validation-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(
+            run_name, epoch, total_train_loss, total_ce_loss, total_mmd_loss, total_val_loss, total_val_ce_loss, total_val_mmd_loss, val_acc, end_time-start_time))
+        with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
+            writer = csv.writer(f)
+            writer.writerow([str(epoch), str(total_train_loss), str(total_ce_loss), str(total_mmd_loss), str(total_val_loss), str(total_val_ce_loss), str(total_val_mmd_loss), str(val_acc)])
+
+        # Early Stopping
+        if total_val_loss < min_loss:
+            early_stopping_wait=0
+            min_loss = total_val_loss
+            best_state = {
+                    'epoch': epoch,
+                    'state_dict': model.state_dict(),
+                    'total_train_loss': total_train_loss,
+                    'cla_train_loss': total_ce_loss,
+                    'mmd_train_loss': total_mmd_loss,
+                    'total_val_loss': total_val_loss,
+                    'cla_val_loss': total_val_ce_loss,
+                    'mmd_val_loss': total_val_mmd_loss,
+                    'val_acc': val_acc,
+                    'optimizer' : optimizer.state_dict(),
+                    'kappa': kappa,
+                }
+        else:
+            early_stopping_wait+=1    
+            if early_stopping_wait > early_stopping_after_epochs:
+                print("Early Stopping")
+                break
+        
+    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
     return 1

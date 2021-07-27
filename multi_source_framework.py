@@ -31,7 +31,7 @@ class Framework(nn.Module):
         for _ in range(len(encoders)):
             self.individual_classifiers.append(architectures.DenseClassifier(latent_dim, num_classes)) # Individual Classifiers
 
-    def forward(self, x_list, individual_outputs=False):
+    def forward(self, x_list, individual_outputs=False, output_latent_representation=False):
         assert len(self.encoders) ==len(x_list)
 
         z_list = list()
@@ -59,6 +59,9 @@ class Framework(nn.Module):
         
         if individual_outputs:
             return_value = return_value, y_pred_individual_list
+        
+        if output_latent_representation:
+            return_value = return_value, z_list
 
         return return_value
 

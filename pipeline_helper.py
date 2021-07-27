@@ -40,7 +40,7 @@ def send_mail_notification(subject, run_name):
 def MMD_loss(X_list ,kernel='rbf', num_choices=0):
     import numpy as np
     import torch
-    
+
     def calculate_MMD(x, y, kernel):
         # Reference: https://www.kaggle.com/onurtunali/maximum-mean-discrepancy
         """Emprical maximum mean discrepancy. The lower the result
@@ -96,7 +96,6 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0):
     #print("Num choices: %i"%num_choices)
     mmd_loss = 0.
     k = list(rng.choice(num_datasources, num_choices, replace=False))
-    print(k)
     for i in range(len(k)-1):
         mmd_loss += calculate_MMD(X_list[k[i]], X_list[k[i+1]], kernel)
     mmd_loss += calculate_MMD(X_list[k[-1]], X_list[k[0]], kernel)
