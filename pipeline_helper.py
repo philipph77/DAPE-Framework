@@ -41,6 +41,8 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0):
     import numpy as np
     import torch
 
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
     def calculate_MMD(x, y, kernel):
         # Reference: https://www.kaggle.com/onurtunali/maximum-mean-discrepancy
         """Emprical maximum mean discrepancy. The lower the result
@@ -63,9 +65,9 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0):
         dyy = ry.t() + ry - 2. * yy # Used for B in (1)
         dxy = rx.t() + ry - 2. * zz # Used for C in (1)
         
-        XX, YY, XY = (torch.zeros(xx.shape),
-                    torch.zeros(xx.shape),
-                    torch.zeros(xx.shape))
+        XX, YY, XY = (torch.zeros(xx.shape).to(device),
+                    torch.zeros(xx.shape).to(device),
+                    torch.zeros(xx.shape).to(device))
         
         if kernel == "multiscale":
             
