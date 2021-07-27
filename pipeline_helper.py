@@ -38,6 +38,9 @@ def send_mail_notification(subject, run_name):
         print("Mail could not be sent")
 
 def MMD_loss(X_list ,kernel='rbf', num_choices=0):
+    import numpy as np
+    import torch
+    
     def calculate_MMD(x, y, kernel):
         # Reference: https://www.kaggle.com/onurtunali/maximum-mean-discrepancy
         """Emprical maximum mean discrepancy. The lower the result
@@ -48,7 +51,6 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0):
             y: second sample, distribution Q
             kernel: kernel type such as "multiscale" or "rbf"
         """
-        import torch
 
         x = x.squeeze()
         y = y.squeeze()
