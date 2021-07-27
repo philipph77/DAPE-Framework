@@ -45,7 +45,7 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, lam=0., lo
     if adversarial:
         train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam, max_epochs=300)
     elif train_mode == 'mmd':
-        train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa=lam, max_epochs=2)
+        train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa=lam, max_epochs=300)
     else:
         train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=300)
 
