@@ -28,7 +28,7 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, lam=0., lo
     # Select only relevant datasource_files    
     data_sources = sorted(data_sources)
     train_datasource_files = pipeline_helper.filter_datasource_files(train_datasource_files, data_sources)
-    validation_datasource_files = pipeline_helper.filter_datasource_files(train_datasource_files, data_sources)
+    validation_datasource_files = pipeline_helper.filter_datasource_files(validation_datasource_files, data_sources)
     test_datasource_files = pipeline_helper.filter_datasource_files(test_datasource_files, data_sources)
 
     # build the encoder list
