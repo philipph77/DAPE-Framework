@@ -13,8 +13,10 @@ import pipeline_helper
 def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, lam=0., logpath='../logs/', **kwargs):
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
+        BATCHSIZE = 64
     else:
         path = '../Datasets/private_encs/'
+        BATCHSIZE = 256
 
     if train_mode == 'adversarial':
         adversarial = True
@@ -39,8 +41,8 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, lam=0., lo
     training_data = datasets.MultiSourceDataset(train_datasource_files)
     validation_data = datasets.MultiSourceDataset(validation_datasource_files)
 
-    train_dataloader = DataLoader(training_data, batch_size=64, shuffle=True, num_workers=4, pin_memory=True)
-    validation_dataloader = DataLoader(validation_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
+    train_dataloader = DataLoader(training_data, batch_size=BATCHSIZE, shuffle=True, num_workers=4, pin_memory=True)
+    validation_dataloader = DataLoader(validation_data, batch_size=BATCHSIZE, shuffle=False, num_workers=4, pin_memory=True)
 
     if adversarial:
         train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam, max_epochs=300)
@@ -53,7 +55,7 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, lam=0., lo
     model.load_state_dict(best_state['state_dict'])
 
     test_data = datasets.MultiSourceDataset(test_datasource_files)
-    test_dataloader = DataLoader(test_data, batch_size=64, shuffle=False, num_workers=4, pin_memory=True)
+    test_dataloader = DataLoader(test_data, batch_size=BATCHSIZE, shuffle=False, num_workers=4, pin_memory=True)
 
     if adversarial:
         test_adversarial(model, test_dataloader, run_name, logpath)
@@ -70,7 +72,9 @@ def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, l
 if __name__ == '__main__':
     num_runs = 5
     kappas = [0.05, 0.1, 0.2, 0.3, 0.4 ,0.5, 0.6, 0.7, 0.8, 0.9, 1.]
+    latent_dims = [5, 10, 20, 30, 40, 50]
     for kappa in kappas:
-        for i in range(num_runs):
-            run_name = "DCN-1111-50-mmd-%2.2f-v3-%i"%(kappa, i)
-            pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 50, 'mmd', run_name, lam=kappa, logpath='../logs_v3/')
+        for latent_dim in latent_dims:
+            for i in range(num_runs):
+                run_name = "DCN-1111-%i-mmd-%2.2f-v3-%i"%(latent_dim, kappa, i)
+                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, latent_dim, 'mmd', run_name, lam=kappa, logpath='../logs_v3/')
