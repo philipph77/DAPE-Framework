@@ -6,12 +6,13 @@ from torchvision import datasets
 from torchvision.transforms import ToTensor
 
 class MultiSourceDataset(Dataset):
-    def __init__(self, datasource_files):
+    def __init__(self, datasource_files, supress_output=False):
         self.num_datasources = len(datasource_files)
         self.x_list = list()
         self.y_list = list()
         for datasource_file in datasource_files:
-            print("Loading %s"%datasource_file)
+            if not(supress_output):
+                print("Loading %s"%datasource_file)
             datasource = np.load(datasource_file)
             self.x_list.append(torch.from_numpy(datasource['X']).type(torch.FloatTensor))
             self.y_list.append(torch.from_numpy(datasource['Y']).type(torch.LongTensor) + 1)
