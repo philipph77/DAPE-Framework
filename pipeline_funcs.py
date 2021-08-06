@@ -485,6 +485,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
     '''
     scheduled_kappa = np.concatenate(( np.zeros((5,)), np.arange(0,kappa+0.05, 0.05) ))
     scheduled_kappa = np.concatenate(( scheduled_kappa, np.ones((max_epochs-len(scheduled_kappa),))*kappa ))
+    scheduled_kappa = np.ones((max_epochs,1))*kappa
 
     for epoch in range(1,max_epochs+1):
         # Training
@@ -543,9 +544,9 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             writer.writerow([str(epoch), str(total_train_loss), str(total_ce_loss), str(total_mmd_loss), str(total_val_loss), str(total_val_ce_loss), str(total_val_mmd_loss), str(val_acc)])
 
         # Early Stopping
-        if total_val_mmd_loss < min_loss:
+        if total_val_loss < min_loss:
             early_stopping_wait=0
-            min_loss = total_val_mmd_loss
+            min_loss = total_val_loss
             best_state = {
                     'epoch': epoch,
                     'state_dict': model.state_dict(),

@@ -76,9 +76,9 @@ def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, l
 if __name__ == '__main__':
     num_runs = 5
     latent_dims = [10, 20, 50, 100]
-    max_kappas = [0.5, 1.0, 1.5, 2.0]
+    kappas = [10, 100, 1000, 10000]
     for i in range(num_runs):
         for latent_dim in latent_dims:
-            for max_kappa in max_kappas:
+            for max_kappa in kappas:
                 run_name = "DCN-1111-%i-mmd_scheduled-%2.2f-v5-%i"%(latent_dim, max_kappa, i)
                 pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, latent_dim, 'mmd', run_name, lam=max_kappa, logpath='../logs_v5/')
