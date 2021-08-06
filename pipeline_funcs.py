@@ -485,7 +485,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
     '''
     scheduled_kappa = np.concatenate(( np.zeros((5,)), np.arange(0,kappa+0.05, 0.05) ))
     scheduled_kappa = np.concatenate(( scheduled_kappa, np.ones((max_epochs-len(scheduled_kappa),))*kappa ))
-    scheduled_kappa = np.ones((max_epochs,1))*kappa
+    scheduled_kappa = np.ones((max_epochs,))*kappa
 
     for epoch in range(1,max_epochs+1):
         # Training
