@@ -79,6 +79,6 @@ if __name__ == '__main__':
     kappas = [10, 100, 1000, 10000]
     for i in range(num_runs):
         for latent_dim in latent_dims:
-            for max_kappa in kappas:
-                run_name = "DCN-1111-%i-mmd_scheduled-%2.2f-v5-%i"%(latent_dim, max_kappa, i)
-                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, latent_dim, 'mmd', run_name, lam=max_kappa, logpath='../logs_v5/')
+            for kappa in kappas:
+                run_name = "DCN-1111-%i-mmd-%2.2f-v5-%i"%(latent_dim, kappa, i)
+                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, latent_dim, 'mmd', run_name, lam=kappa, logpath='../logs_v5/')
