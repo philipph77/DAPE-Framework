@@ -536,8 +536,8 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
         end_time = time.time()
 
         # Logging
-        print("[%s] Epoch %i: - Total-Train-Loss: %4.2f - CLA-Train-Loss: %4.2f - MMD-Train-Loss: %4.2f - Total-Val-Loss: %4.2f - CLA-Val-Loss: %4.2f - MMD-Validation-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(
-            run_name, epoch, total_train_loss, total_ce_loss, total_mmd_loss, total_val_loss, total_val_ce_loss, total_val_mmd_loss, val_acc, end_time-start_time))
+        print("[%s] Epoch %i: - kappa: %4.2f - Total-Train-Loss: %4.2f - CLA-Train-Loss: %4.2f - MMD-Train-Loss: %4.2f - Total-Val-Loss: %4.2f - CLA-Val-Loss: %4.2f - MMD-Validation-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(
+            run_name,  epoch, scheduled_kappa[epoch], total_train_loss, total_ce_loss, total_mmd_loss, total_val_loss, total_val_ce_loss, total_val_mmd_loss, val_acc, end_time-start_time))
         with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
             writer = csv.writer(f)
             writer.writerow([str(epoch), str(total_train_loss), str(total_ce_loss), str(total_mmd_loss), str(total_val_loss), str(total_val_ce_loss), str(total_val_mmd_loss), str(val_acc)])
