@@ -443,7 +443,7 @@ def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, 
     
     return 1
 
-def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa = 0.05, max_epochs=500, early_stopping_after_epochs=30):
+def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa = 0.05, max_epochs=500, early_stopping_after_epochs=50):
     """Trains a Multi-Source Framework and logs relevant data to file
         A Maximum-Mean-Discrepancy-Loss Term is added to the CE-Loss, in order to align the distributions from the encoder
     Args:

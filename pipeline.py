@@ -76,7 +76,7 @@ def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, l
 if __name__ == '__main__':
     num_runs = 5
     latent_dims = [10, 20, 50, 100]
-    kappas = [10, 100, 1000, 10000]
+    kappas = [1, 2, 5, 10, 100, 1000, 10000]
     for i in range(num_runs):
         for latent_dim in latent_dims:
             for kappa in kappas:
