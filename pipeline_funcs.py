@@ -543,9 +543,9 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             writer.writerow([str(epoch), str(total_train_loss), str(total_ce_loss), str(total_mmd_loss), str(total_val_loss), str(total_val_ce_loss), str(total_val_mmd_loss), str(val_acc)])
 
         # Early Stopping
-        if total_val_loss < min_loss:
+        if total_val_mmd_loss < min_loss:
             early_stopping_wait=0
-            min_loss = total_val_loss
+            min_loss = total_val_mmd_loss
             best_state = {
                     'epoch': epoch,
                     'state_dict': model.state_dict(),
