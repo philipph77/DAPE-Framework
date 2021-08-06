@@ -479,6 +479,13 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
         writer = csv.writer(f)
         writer.writerow(header)
 
+    # Prepare Kappa Scheduler
+    '''
+    Makes the architecture train the first 5 Epochs without MMD loss, and afterwards increase MMD-Regularization
+    '''
+    scheduled_kappa = np.concatenate(( np.zeros((5,)), np.arange(0,kappa+0.05, 0.05) ))
+    scheduled_kappa = np.concatenate(( scheduled_kappa, np.ones((max_epochs-len(scheduled_kappa),))*kappa ))
+
     for epoch in range(1,max_epochs+1):
         # Training
         model.train()
@@ -497,7 +504,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             y_pred.squeeze_()
             ce_loss = criterion(y_pred, y_true)
             mmd_loss = MMD_loss(z_list, 'rbf', 4)
-            total_loss = ce_loss + kappa * mmd_loss
+            total_loss = ce_loss + scheduled_kappa[epoch] * mmd_loss
             total_loss.backward()
             optimizer.step()
             total_ce_loss += ce_loss.item()
@@ -524,7 +531,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 val_acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
         total_val_ce_loss = total_val_ce_loss / len(validation_dataloader)
         total_val_mmd_loss = total_val_mmd_loss / len(validation_dataloader)
-        total_val_loss += total_val_ce_loss + kappa * total_val_mmd_loss
+        total_val_loss += total_val_ce_loss + scheduled_kappa[epoch] * total_val_mmd_loss
         val_acc = val_acc / len(validation_dataloader)
         end_time = time.time()
 
@@ -550,7 +557,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                     'mmd_val_loss': total_val_mmd_loss,
                     'val_acc': val_acc,
                     'optimizer' : optimizer.state_dict(),
-                    'kappa': kappa,
+                    'kappa': scheduled_kappa[epoch],
                 }
         else:
             early_stopping_wait+=1    
