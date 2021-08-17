@@ -8,6 +8,7 @@ import time
 from tqdm import trange, tqdm
 import csv
 from pipeline_helper import MMD_loss
+import hyperparam_schedulers
 
 
 def train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=500, early_stopping_after_epochs=20):
@@ -109,7 +110,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
     torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
     return 1
 
-def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam=0.05, max_epochs=500, early_stopping_after_epochs=20):
+def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam_scheduler=hyperparam_schedulers.constant_schedule, max_epochs=500, early_stopping_after_epochs=20, scheduler_kwargs=dict(value=0.05)):
     """Trains a Multi-Source Framework and logs relevant data to file
 
     Args:
@@ -162,6 +163,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
         cla_train_loss = 0.
         adv_train_loss = 0.
         total_train_loss = 0.
+        lam = lam_scheduler(epoch, scheduler_kwargs)
         for x_list, y_true, d_true in tqdm(train_dataloader):
             #optimizer.zero_grad()
             for param in model.parameters():
@@ -443,7 +445,7 @@ def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, 
     
     return 1
 
-def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa = 0.05, max_epochs=500, early_stopping_after_epochs=50):
+def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa_scheduler=hyperparam_schedulers.constant_schedule, max_epochs=500, early_stopping_after_epochs=50, scheduler_kwargs=dict(value=1)):
     """Trains a Multi-Source Framework and logs relevant data to file
         A Maximum-Mean-Discrepancy-Loss Term is added to the CE-Loss, in order to align the distributions from the encoder
     Args:
@@ -479,14 +481,6 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
         writer = csv.writer(f)
         writer.writerow(header)
 
-    # Prepare Kappa Scheduler
-    '''
-    Makes the architecture train the first 5 Epochs without MMD loss, and afterwards increase MMD-Regularization
-    '''
-    scheduled_kappa = np.concatenate(( np.zeros((5,)), np.arange(0,kappa+0.05, 0.05) ))
-    scheduled_kappa = np.concatenate(( scheduled_kappa, np.ones((max_epochs-len(scheduled_kappa),))*kappa ))
-    scheduled_kappa = np.ones((max_epochs,))*kappa
-
     for epoch in range(1,max_epochs+1):
         # Training
         model.train()
@@ -494,6 +488,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
         total_train_loss = 0.
         total_mmd_loss = 0.
         total_ce_loss = 0.
+        kappa = kappa_scheduler(epoch, **scheduler_kwargs)
         for x_list,y_true, _ in tqdm(train_dataloader):
             #optimizer.zero_grad()
             for param in model.parameters():
@@ -505,7 +500,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             y_pred.squeeze_()
             ce_loss = criterion(y_pred, y_true)
             mmd_loss = MMD_loss(z_list, 'rbf', 4)
-            total_loss = ce_loss + scheduled_kappa[epoch] * mmd_loss
+            total_loss = ce_loss + kappa * mmd_loss
             total_loss.backward()
             optimizer.step()
             total_ce_loss += ce_loss.item()
@@ -532,13 +527,13 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 val_acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
         total_val_ce_loss = total_val_ce_loss / len(validation_dataloader)
         total_val_mmd_loss = total_val_mmd_loss / len(validation_dataloader)
-        total_val_loss += total_val_ce_loss + scheduled_kappa[epoch] * total_val_mmd_loss
+        total_val_loss += total_val_ce_loss + kappa * total_val_mmd_loss
         val_acc = val_acc / len(validation_dataloader)
         end_time = time.time()
 
         # Logging
         print("[%s] Epoch %i: - kappa: %4.2f - Total-Train-Loss: %4.2f - CLA-Train-Loss: %4.2f - MMD-Train-Loss: %4.2f - Total-Val-Loss: %4.2f - CLA-Val-Loss: %4.2f - MMD-Validation-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(
-            run_name,  epoch, scheduled_kappa[epoch], total_train_loss, total_ce_loss, total_mmd_loss, total_val_loss, total_val_ce_loss, total_val_mmd_loss, val_acc, end_time-start_time))
+            run_name,  epoch, kappa, total_train_loss, total_ce_loss, total_mmd_loss, total_val_loss, total_val_ce_loss, total_val_mmd_loss, val_acc, end_time-start_time))
         with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
             writer = csv.writer(f)
             writer.writerow([str(epoch), str(total_train_loss), str(total_ce_loss), str(total_mmd_loss), str(total_val_loss), str(total_val_ce_loss), str(total_val_mmd_loss), str(val_acc)])
@@ -558,7 +553,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                     'mmd_val_loss': total_val_mmd_loss,
                     'val_acc': val_acc,
                     'optimizer' : optimizer.state_dict(),
-                    'kappa': scheduled_kappa[epoch],
+                    'kappa': kappa,
                 }
         else:
             early_stopping_wait+=1    
