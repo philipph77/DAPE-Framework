@@ -129,4 +129,5 @@ dmypy.json
 .pyre/
 error_reproduction.py/
 playground.py/
-find_bottleneck.py
+find_bottleneck.py/
+.DS_Store
