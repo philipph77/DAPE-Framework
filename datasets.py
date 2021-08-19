@@ -4,6 +4,7 @@ import torch
 from torch.utils.data import Dataset
 from torchvision import datasets
 from torchvision.transforms import ToTensor
+from sklearn.preprocessing import normalize
 
 class MultiSourceDataset(Dataset):
     def __init__(self, datasource_files, supress_output=False):
@@ -18,7 +19,7 @@ class MultiSourceDataset(Dataset):
             self.y_list.append(torch.from_numpy(datasource['Y']).type(torch.LongTensor) + 1)
         self.length = self.x_list[0].shape[0]
         for i in range(self.num_datasources):
-            assert self.length == self.x_list[0].shape[0]
+            assert self.length == self.x_list[i].shape[0]
 
 
     def __len__(self):
@@ -35,6 +36,27 @@ class MultiSourceDataset(Dataset):
         y_item = torch.cat(y_item, dim=0).squeeze()
         d_item = torch.cat(d_item, dim=0).squeeze()
         return x_item, y_item, d_item
+
+class SingleSourceDataset(Dataset):
+    def __init__(self, datasource_file, supress_output=False, normalize=False):
+        if not(supress_output):
+            print("Loading %s"%datasource_file)
+        datasource = np.load(datasource_file)
+        self.x = torch.from_numpy(datasource['X']).type(torch.FloatTensor)
+        self.y = torch.from_numpy(datasource['Y']).type(torch.LongTensor) + 1
+        self.length = self.x.shape[0]
+        self.normalize = normalize
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, idx):
+        x = self.x[idx,:,:].unsqueeze_(0)
+        y = self.y[idx].reshape(-1,1)
+        if self.normalize:
+            x = torch.from_numpy(normalize(x.squeeze_(), axis=1)).type(torch.FloatTensor)
+            x.unsqueeze_(0)
+        return x, y
 
 
 def test_dimensions():
@@ -56,3 +78,4 @@ def test_dimensions():
 
 if __name__ == '__main__':
     test_dimensions()
+    
