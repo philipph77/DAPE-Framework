@@ -67,9 +67,9 @@ class Framework(nn.Module):
 
     def add_encoder(self, encoder):
         # ATTENTION: THIS IS NOT SUPPORTED YET!
-        if self.is_trained:
-            for param in self.parameters():
-                param.requires_grad = False
+        #if self.is_trained:
+        #    for param in self.parameters():
+        #        param.requires_grad = False
         self.encoders.append(encoder)
 
     def get_config(self):
