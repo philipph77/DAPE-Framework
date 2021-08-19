@@ -179,15 +179,95 @@ class DenseClassifier(nn.Module):
         return self.fc1(x)
 
 
+class DeepConvNetDecoder(nn.Module):
+    def __init__(self, latent_dim, T, C):
+        super().__init__()
+        dim1 = T
+        dim2 = (T-4)//2
+        dim3 = (dim2-4)//2
+        dim4 = (dim3-4)//2
+        dim_z = (dim4-4)//2
+
+        k1 = dim1 - (dim2-4) + 1
+        k2 = dim2 - (dim3-4) + 1
+        k3 = dim3 - (dim4-4) + 1
+        k4 = dim4 - (dim_z-4) + 1 
+
+        self.dense = nn.Linear(latent_dim, dim_z*200)
+
+        self.conv4 = nn.Conv2d(200, 100, (1,5), bias=False)
+        self.bn4 = nn.BatchNorm2d(100, eps=1e-05, momentum=0.1)
+        self.act4 = nn.ELU()
+        self.unpool4 = nn.ConvTranspose2d(100, 100, (1,k4), 1)
+        self.drop4 = nn.Dropout(0.5)
+
+        self.conv3 = nn.Conv2d(100, 50, (1,5), bias=False)
+        self.bn3 = nn.BatchNorm2d(50, eps=1e-05, momentum=0.1)
+        self.act3 = nn.ELU()
+        self.unpool3 = nn.ConvTranspose2d(50, 50, (1,k3), 1)
+        self.drop3 = nn.Dropout(0.5)
+
+        self.conv2 = nn.Conv2d(50, 25, (1,5), bias=False)
+        self.bn2 = nn.BatchNorm2d(25, eps=1e-05, momentum=0.1)
+        self.act2 = nn.ELU()
+        self.unpool2 = nn.ConvTranspose2d(25, 25, (1,k2), 1)
+        self.drop2 = nn.Dropout(0.5)
+
+        self.conv1 = nn.Conv2d(25, 1, (1,5), bias=False)
+        self.bn1 = nn.BatchNorm2d(1, eps=1e-05, momentum=0.1)
+        self.act1 = nn.ELU()
+        self.unpool1 = nn.ConvTranspose2d(1, 1, (C,k1), 1)
+        self.drop1 = nn.Dropout(0.5)
+
+    def forward(self,h):
+        # from latent representation
+        h = self.dense(h)
+        h = h.reshape(h.shape[0],200,1,-1)
+
+        # level 4
+        h = self.conv4(h)
+        h = self.bn4(h)
+        h = self.act4(h)
+        h = self.unpool4(h)
+        h = self.drop4(h)
+
+        # level 3
+        h = self.conv3(h)
+        h = self.bn3(h)
+        h = self.act3(h)
+        h = self.unpool3(h)
+        h = self.drop3(h)
+
+        # level 2
+        h = self.conv2(h)
+        h = self.bn2(h)
+        h = self.act2(h)
+        h = self.unpool2(h)
+        h = self.drop2(h)
+
+        # level 1
+        h = self.conv1(h)
+        h = self.bn1(h)
+        h = self.act1(h)
+        h = self.unpool1(h)
+        h = self.drop1(h)
+
+        return h
+
+
 if __name__ == '__main__':
     from torchsummary import summary
     C = 62
-    T = 128
+    T = 400
     F1 = 32
     D = 16
     F2 = 8
+    
     model = EEGNetEncoder(channels=C, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=20)
     summary(model, (1,C,T), batch_size=32)
 
-    #cla = DenseClassifier(20,3)
-    #summary(cla, (1,20))
+    model = DeepConvNetEncoder(C, 100)
+    summary(model, (1,C,T), batch_size=32)
+
+    cla = DenseClassifier(20,3)
+    summary(cla, (1,20))
