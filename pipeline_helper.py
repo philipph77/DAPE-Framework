@@ -37,7 +37,7 @@ def send_mail_notification(subject, run_name):
     except:
         print("Mail could not be sent")
 
-def MMD_loss(X_list ,kernel='rbf', num_choices=0):
+def MMD_loss(X_list ,kernel='rbf', num_choices=0, x_one_vs_all=None):
     import numpy as np
     import torch
 
@@ -84,11 +84,9 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0):
                 XX += torch.exp(-0.5*dxx/a)
                 YY += torch.exp(-0.5*dyy/a)
                 XY += torch.exp(-0.5*dxy/a)
-        
-        
 
         return torch.mean(XX + YY - 2. * XY)
-
+    
     
     num_datasources = len(X_list)
     assert num_choices <= num_datasources # maximum number of combinations, possible using this method
@@ -98,9 +96,14 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0):
     #print("Num choices: %i"%num_choices)
     mmd_loss = 0.
     k = list(rng.choice(num_datasources, num_choices, replace=False))
-    for i in range(len(k)-1):
-        mmd_loss += calculate_MMD(X_list[k[i]], X_list[k[i+1]], kernel)
-    mmd_loss += calculate_MMD(X_list[k[-1]], X_list[k[0]], kernel)
+
+    if x_one_vs_all == None:
+        for i in range(len(k)-1):
+            mmd_loss += calculate_MMD(X_list[k[i]], X_list[k[i+1]], kernel)
+        mmd_loss += calculate_MMD(X_list[k[-1]], X_list[k[0]], kernel)
+    else:
+        for i in range(len(k)):
+            mmd_loss += calculate_MMD(x_one_vs_all, X_list[k[i]], kernel)
     
     return mmd_loss
 
