@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
 
     dataset_name = 'DEAP'
-    latent_dim = 100
+    latent_dim = 1000
     batch_size = 64
     epochs = 200
 
@@ -77,6 +77,10 @@ if __name__ == '__main__':
 
     encoder = architectures.DeepConvNetEncoder(C, latent_dim)
     decoder = architectures.DeepConvNetDecoder(latent_dim, T, C)
+
+    encoder = architectures.VanillaEncoder(C, T, latent_dim)
+    decoder = architectures.VanillaDecoder(C, T, latent_dim)
+
     model = autoencoder(encoder, decoder)
     
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")

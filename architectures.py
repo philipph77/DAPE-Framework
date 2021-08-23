@@ -254,6 +254,74 @@ class DeepConvNetDecoder(nn.Module):
 
         return h
 
+class VanillaEncoder(nn.Module):
+    def __init__(self, C, T, latent_dim, num_kernels=5):
+        super().__init__()
+        self.conv1 = nn.Conv2d(1, num_kernels, (1,T//2), padding='same', bias=False)
+        self.bn1 = nn.BatchNorm2d(num_kernels, eps=1e-5, momentum=0.1)
+        self.act1 = nn.ReLU()
+        
+        self.conv2 = nn.Conv2d(num_kernels, num_kernels, (C,1), bias=False)
+        self.bn2 = nn.BatchNorm2d(num_kernels, eps=1e-5, momentum=0.1)
+        self.act2 = nn.ReLU()
+
+        self.pool = nn.AvgPool2d((1,4))
+        self.flat = nn.Flatten()
+        self.linear =  nn.Linear(num_kernels*T//4 ,latent_dim, bias=False)
+        self.act3 = nn.ReLU()
+
+
+    def forward(self,x):
+        h = self.conv1(x)
+        h = self.bn1(h)
+        h = self.act1(h)
+
+        h = self.conv2(h)
+        h = self.bn2(h)
+        h = self.act2(h)
+
+        h = self.pool(h)
+        h = self.flat(h)
+        h = self.linear(h)
+        h = self.act3(h)
+
+        return h
+
+class VanillaDecoder(nn.Module):
+    def __init__(self, C, T, latent_dim, num_kernels=5):
+        super().__init__()
+        self.T = T
+        self.linear = nn.Linear(latent_dim, num_kernels*T//4, bias=False)
+        self.act1 = nn.ReLU()
+        self.up1 = nn.UpsamplingNearest2d(scale_factor=(1,4))
+
+        self.convt2 = nn.ConvTranspose2d(num_kernels, num_kernels, (C, 1), bias=False)
+        self.bn2 = nn.BatchNorm2d(num_kernels, eps=1e-5, momentum=0.1)
+        self.act2 = nn.ReLU()
+        
+        self.convt3 = nn.ConvTranspose2d(num_kernels, 1, (1,1), bias=False)
+        self.bn3 = nn.BatchNorm2d(1, eps=1e-5, momentum=0.1)
+        self.act3 = nn.ReLU()
+
+
+    def forward(self,x):
+        h = self.linear(x)
+        h = self.act1(h)
+        #h = h.reshape(h.shape[0],1, T//4,-1)
+        h = h.reshape(h.shape[0], -1, 1, self.T//4)
+        h = self.up1(h)
+
+        h = self.convt2(h)
+        h = self.bn2(h)
+        h = self.act2(h)
+        
+        h = self.convt3(h)
+        h = self.bn3(h)
+        h = self.act3(h)
+
+        return h
+
+
 
 if __name__ == '__main__':
     from torchsummary import summary
@@ -271,3 +339,9 @@ if __name__ == '__main__':
 
     cla = DenseClassifier(20,3)
     summary(cla, (1,20))
+
+    model = VanillaEncoder(C, T, 100)
+    summary(model, (1,C,T))
+
+    model = VanillaDecoder(C, T, 100)
+    summary(model, (1,100))
