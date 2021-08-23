@@ -21,11 +21,11 @@ def generate_encoder_list(encoder, latent_dim, data_source_files, **kwargs):#dat
 def generate_run_name():
     pass
 
-def send_mail_notification(subject, run_name):
+def send_mail_notification(subject, run_name, error):
     try:
         import smtplib
         SUBJECT = subject
-        TEXT = 'Es ist ein Fehler aufgetreten bei: ' + run_name
+        TEXT = 'Es ist ein Fehler aufgetreten bei: ' + run_name + '\n' + str(error)
         content = 'Subject: {}\n\n{}'.format(SUBJECT, TEXT)
         mail = smtplib.SMTP('smtp.gmail.com', 587)
         mail.ehlo()
