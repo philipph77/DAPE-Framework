@@ -3,12 +3,13 @@ import torch.nn as nn
 import torch.optim as optim
 import os
 import numpy as np
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import accuracy_score, classification_report
 import time
 from tqdm import trange, tqdm
 import csv
 from pipeline_helper import MMD_loss
 import hyperparam_schedulers
+from helper_logging import tensorboard_logger, print_logger, csv_logger
 
 
 def train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=500, early_stopping_after_epochs=20):
@@ -25,7 +26,8 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
 
     Returns:
         [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
-    """    
+    """
+    logging_daemons=[tensorboard_logger(run_name, 'standard'), print_logger('standard'), csv_logger(os.path.join(logpath, run_name), 'standard')] 
     #setup
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -34,18 +36,6 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
     criterion = nn.CrossEntropyLoss()
     min_loss = np.infty
     early_stopping_wait = 0
-
-    # Prepare Logging
-    if not (os.path.isdir(os.path.join(logpath, run_name))):
-        os.makedirs(os.path.join(logpath, run_name))
-
-    elif os.path.isfile(os.path.join(logpath, run_name, 'logs.csv')):
-        print("LogFile already exists! Rename or remove it, and restart the training")
-        return 0
-    header = ['Epoch', 'Train-Loss', 'Validation-Loss', 'Validation-Accuracy']
-    with open(os.path.join(logpath, run_name, 'logs.csv'), 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
 
     for epoch in range(1,max_epochs+1):
         # Training
@@ -71,6 +61,8 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
         with torch.no_grad():
             val_loss = 0.
             val_acc = 0.
+            y_true_all = list()
+            y_pred_all = list()
             for x_val_list, y_true, _ in validation_dataloader:
                 x_val_list = [x_i.to(device) for x_i in x_val_list]
                 y_true = y_true.to(device)
@@ -78,16 +70,34 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
                 y_val_pred = model(x_val_list)
                 y_val_pred.squeeze_()
                 val_loss += criterion(y_val_pred,y_true).item()
-                val_acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
-        val_loss = val_loss / len(validation_dataloader)
-        val_acc = val_acc / len(validation_dataloader)
-        end_time = time.time()
+                y_true_all.append(np.expand_dims(y_true.detach().cpu().numpy(),1))
+                y_pred_all.append(y_val_pred.detach().cpu().numpy())
+            y_true_all = np.concatenate(y_true_all, axis=0)
+            y_pred_all = np.concatenate(y_pred_all, axis=0)
+            y_pred_all = np.argmax(y_pred_all, axis=1)
+            val_acc = accuracy_score(y_true_all, y_pred_all)
+            report = classification_report(y_true_all, y_pred_all, target_names=['Negative', 'Neutral', 'Positive'], output_dict=True)
+            val_loss = val_loss / len(validation_dataloader)
+            end_time = time.time()
 
         # Logging
-        print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(run_name, epoch, train_loss, val_loss, val_acc, end_time-start_time))
-        with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
-            writer = csv.writer(f)
-            writer.writerow([str(epoch), str(train_loss), str(val_loss), str(val_acc)])
+        state = {
+            'run-name': run_name,
+            'epoch': epoch,
+            'start-time': start_time,
+            'end-time': end_time,
+            'scalars': {
+                'total-train-loss': train_loss,
+                'total-val-loss' : val_loss,
+                'val-acc': val_acc
+            },
+            'models': {
+                'model': model,
+            },
+            'images': {}
+        }
+        for daemon in logging_daemons:
+            daemon.write_state(state)
 
         # Early Stopping
         if val_loss < min_loss:
@@ -459,7 +469,10 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
 
     Returns:
         [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
-    """    
+    """ 
+    
+    logging_daemons=[tensorboard_logger(run_name, 'mmd'), print_logger('mmd'), csv_logger(os.path.join(logpath, run_name), 'mmd')]
+
     #setup
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -468,18 +481,6 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
     criterion = nn.CrossEntropyLoss()
     min_loss = np.infty
     early_stopping_wait = 0
-
-    # Prepare Logging
-    if not (os.path.isdir(os.path.join(logpath, run_name))):
-        os.makedirs(os.path.join(logpath, run_name))
-
-    elif os.path.isfile(os.path.join(logpath, run_name, 'logs.csv')):
-        print("LogFile already exists! Rename or remove it, and restart the training")
-        return 0
-    header = ['Epoch', 'Total-Train-Loss', 'CLA-Train-Loss', 'MMD-Train-Loss', 'Total-Validation-Loss', 'CLA-Validation-Loss', 'MMD-Validation-Loss', 'Validation-Accuracy']
-    with open(os.path.join(logpath, run_name, 'logs.csv'), 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
 
     for epoch in range(1,max_epochs+1):
         # Training
@@ -515,7 +516,8 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             total_val_loss = 0.
             total_val_mmd_loss = 0.
             total_val_ce_loss = 0.
-            val_acc = 0.
+            y_true_all = list()
+            y_pred_all = list()
             for x_val_list, y_true, _ in validation_dataloader:
                 x_val_list = [x_i.to(device) for x_i in x_val_list]
                 y_true = y_true.to(device)
@@ -524,19 +526,44 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 y_val_pred.squeeze_()
                 total_val_ce_loss += criterion(y_val_pred,y_true).item()
                 total_val_mmd_loss += MMD_loss(z_val_list, 'rbf', 4).item()
-                val_acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_val_pred.detach().cpu().numpy(), axis=1))
-        total_val_ce_loss = total_val_ce_loss / len(validation_dataloader)
-        total_val_mmd_loss = total_val_mmd_loss / len(validation_dataloader)
-        total_val_loss += total_val_ce_loss + kappa * total_val_mmd_loss
-        val_acc = val_acc / len(validation_dataloader)
-        end_time = time.time()
+                y_true_all.append(np.expand_dims(y_true.detach().cpu().numpy(),1))
+                y_pred_all.append(y_val_pred.detach().cpu().numpy())
+            y_true_all = np.concatenate(y_true_all, axis=0)
+            y_pred_all = np.concatenate(y_pred_all, axis=0)
+            y_pred_all = np.argmax(y_pred_all, axis=1)
+            val_acc = accuracy_score(y_true_all, y_pred_all)
+            report = classification_report(y_true_all, y_pred_all, target_names=['Negative', 'Neutral', 'Positive'], output_dict=True)
+            total_val_ce_loss = total_val_ce_loss / len(validation_dataloader)
+            total_val_mmd_loss = total_val_mmd_loss / len(validation_dataloader)
+            total_val_loss += total_val_ce_loss + kappa * total_val_mmd_loss
+            end_time = time.time()
 
         # Logging
-        print("[%s] Epoch %i: - kappa: %4.2f - Total-Train-Loss: %4.2f - CLA-Train-Loss: %4.2f - MMD-Train-Loss: %4.2f - Total-Val-Loss: %4.2f - CLA-Val-Loss: %4.2f - MMD-Validation-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(
-            run_name,  epoch, kappa, total_train_loss, total_ce_loss, total_mmd_loss, total_val_loss, total_val_ce_loss, total_val_mmd_loss, val_acc, end_time-start_time))
-        with open(os.path.join(logpath, run_name, 'logs.csv'), 'a', encoding='UTF8') as f:
-            writer = csv.writer(f)
-            writer.writerow([str(epoch), str(total_train_loss), str(total_ce_loss), str(total_mmd_loss), str(total_val_loss), str(total_val_ce_loss), str(total_val_mmd_loss), str(val_acc)])
+        state = {
+            'run-name': run_name,
+            'epoch': epoch,
+            'start-time': start_time,
+            'end-time': end_time,
+            'kappa': kappa,
+            'scalars': {
+                'total-train-loss': total_train_loss,
+                'mmd-train-loss': total_mmd_loss,
+                'ce-train-loss': total_ce_loss,
+                'mmd-train-share': kappa*total_mmd_loss / total_train_loss,
+                'total-val-loss' : total_val_loss,
+                'mmd-val-loss': total_val_mmd_loss,
+                'ce-val-loss': total_val_ce_loss,
+                'mmd-val-share': kappa*total_val_mmd_loss / total_val_loss,
+                'val-acc': val_acc
+            },
+            'models': {
+                'model': model,
+            },
+            'classification-report': report,
+            'images': {}
+        }
+        for daemon in logging_daemons:
+            daemon.write_state(state)
 
         # Early Stopping
         if total_val_loss < min_loss:
