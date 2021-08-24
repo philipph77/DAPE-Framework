@@ -543,7 +543,6 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             d_train_all.append(d_true.detach().cpu().numpy())
             z_train_batch = torch.cat((z_list), dim=0)
             z_train_all.append(z_train_batch.detach().cpu().numpy())
-            break
         
         d_train_all = np.concatenate(d_train_all, axis=0)
         z_train_all = np.squeeze(np.concatenate(z_train_all, axis=0))
