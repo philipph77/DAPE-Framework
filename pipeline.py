@@ -67,9 +67,9 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weigh
     else:
         test(model, test_dataloader, run_name, logpath)
 
-def pipeline_saverun(data_sources, encoder ,latent_dim, adversarial, run_name, loss_weight_scheduler, logpath, enc_kwargs=dict(), scheduler_kwargs=dict(), train_method_kwargs=dict()):
+def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs=dict(), scheduler_kwargs=dict(), train_method_kwargs=dict()):
     try:
-        pipeline(data_sources, encoder ,latent_dim, adversarial, run_name, loss_weight_scheduler, logpath, enc_kwargs, scheduler_kwargs, train_method_kwargs)
+        pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs, scheduler_kwargs, train_method_kwargs)
     except Exception as e:
         pipeline_helper.send_mail_notification('Fehler', run_name, e)
         print(e)
@@ -82,7 +82,29 @@ if __name__ == '__main__':
     for run_id in range(10):
         for kappa in kappas:
             for latent_dim in latent_dims:
-                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'], architectures.DeepConvNetEncoder, 100, 'mmd', 'DCN-1111-%i-mmd-%4.2f-v7-%i'%(latent_dim, kappa, run_id), loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule, logpath='../logs_v7/', scheduler_kwargs=dict(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70))
-
+                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
+                architectures.DeepConvNetEncoder,
+                latent_dim,
+                'mmd',
+                'DCN-1111-%i-mmd-%4.2f-v7-%i'%(latent_dim, kappa, run_id),
+                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule,
+                logpath='../logs_v7/',
+                scheduler_kwargs=dict(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
+                train_method_kwargs=dict(early_stopping_after_epochs=50)
+                )
+    
+    for run_id in range(10):
+        for kappa in kappas:
+            for latent_dim in latent_dims:
+                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
+                architectures.DeepConvNetEncoder, 
+                latent_dim,
+                'mmd',
+                'DCN-1111-%i-mmd-%4.2f-v7-%i-noes'%(latent_dim, kappa, run_id),
+                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule,
+                logpath='../logs_v7/',
+                scheduler_kwargs=dict(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
+                train_method_kwargs=dict(early_stopping_after_epochs=300)
+                )
 
     
