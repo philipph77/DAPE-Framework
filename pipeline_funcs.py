@@ -573,7 +573,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
 
                 d_true = torch.flatten(torch.transpose(d_true,0,1))
                 d_val_all.append(d_true.detach().cpu().numpy())
-                z_val_batch = torch.cat((z_list), dim=0)
+                z_val_batch = torch.cat((z_val_list), dim=0)
                 z_val_all.append(z_val_batch.detach().cpu().numpy())
 
             d_val_all = np.concatenate(d_val_all, axis=0)
@@ -615,8 +615,8 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             'embeddings': {
                 'z-train': z_train_all,
                 'd-train': d_train_all,
-                'z-val': z_train_all,
-                'd-val': d_train_all,
+                'z-val': z_val_all,
+                'd-val': d_val_all,
             }
         }
         for daemon in logging_daemons:

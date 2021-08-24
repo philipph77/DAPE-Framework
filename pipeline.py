@@ -92,6 +92,7 @@ if __name__ == '__main__':
     for run_id in range(10):
         for kappa in kappas:
             for latent_dim in latent_dims:
+                #pipeline(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
                 pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
                 architectures.DeepConvNetEncoder,
                 latent_dim,

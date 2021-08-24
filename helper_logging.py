@@ -29,8 +29,9 @@ class tensorboard_logger():
         self.writer.add_scalar("03-Validation-Accuracy/Accuracy", state['scalars']['val-acc'], state['epoch'])
 
         # Latent Representation
-        self.writer.add_embedding(state['embeddings']['z-train'], state['embeddings']['d-train'], global_step=state['epoch'], tag='Train-Data')
-        self.writer.add_embedding(state['embeddings']['z-val'], state['embeddings']['d-val'], global_step=state['epoch'], tag='Validation-Data')
+        if state['epoch'] in [1,5,6,10,20,30,40,50,75,100,150,200,250,300]:
+            self.writer.add_embedding(state['embeddings']['z-train'], state['embeddings']['d-train'], global_step=state['epoch'], tag='Train-Data')
+            self.writer.add_embedding(state['embeddings']['z-val'], state['embeddings']['d-val'], global_step=state['epoch'], tag='Validation-Data')
 
         ## Classification Report
         targets = ['Negative', 'Neutral', 'Positive']
