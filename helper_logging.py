@@ -5,9 +5,10 @@ from torch.utils.tensorboard import SummaryWriter
 
 class tensorboard_logger():
     def __init__(self, run_name, train_mode):
-        self.writer = SummaryWriter('../tensorboard_logs/'+run_name+'/')
+        self.run_name = run_name
+        self.writer = SummaryWriter('../tensorboard_logs/'+self.run_name+'/')
         self.train_mode = train_mode
-        print("Hi - I am going to handle your Tensorboard Logs")
+        #print("Hi - I am going to handle your Tensorboard Logs")
 
     def write_state(self,state):
         ## Losses
@@ -27,6 +28,10 @@ class tensorboard_logger():
         ## Accuracies
         self.writer.add_scalar("03-Validation-Accuracy/Accuracy", state['scalars']['val-acc'], state['epoch'])
 
+        # Latent Representation
+        self.writer.add_embedding(state['embeddings']['z-train'], state['embeddings']['d-train'], global_step=state['epoch'], tag='Train-Data')
+        self.writer.add_embedding(state['embeddings']['z-val'], state['embeddings']['d-val'], global_step=state['epoch'], tag='Validation-Data')
+
         ## Classification Report
         targets = ['Negative', 'Neutral', 'Positive']
         for target in targets:
@@ -40,12 +45,18 @@ class tensorboard_logger():
 
         self.writer.flush()
 
+    def write_test_results(self, state):
+        self.writer.add_hparams(state['hyperparams'], state['scalars'], run_name=f"test-{self.run_name}")
+        self.writer.flush()
+
+    #def __del__(self):
+    #    self.writer.flush()
+    #    self.writer.close()
 
 class print_logger():
     def __init__(self, train_mode):
         self.train_mode = train_mode
-        print("Hi - I am going to handle your Print Logs")
-        pass
+        #print("Hi - I am going to handle your Print Logs")
 
     def write_state(self, state):
         if self.train_mode == 'mmd':
@@ -58,12 +69,21 @@ class print_logger():
         else:
             raise NotImplementedError
 
+    def write_test_results(self, state):
+        if self.train_mode == 'adversarial':
+            raise NotImplementedError
+        else:
+            print("[%s] Test-Accuracy: %4.2f - SVM-Accuracy: %4.2f - NB-Accuracy: %4.2f - XGB-Accuracy: %4.2f"%(state['run-name'], state['scalars']['05-Scores/test-acc'], state['scalars']['05-Scores/svm-acc'], state['scalars']['05-Scores/nb-acc'], state['scalars']['05-Scores/xgb-acc']))
+
 class csv_logger():
     def __init__(self, logpath, train_mode):
         self.train_mode = train_mode
-        print("Hi - I am going to handle your CSV Logs")
-
         self.logpath = logpath
+        self.header_written = False
+        #print("Hi - I am going to handle your CSV Logs")
+
+
+    def write_train_header(self):
         # Prepare Logging
         if not (os.path.isdir(self.logpath)):
             os.makedirs(os.path.join(self.logpath))
@@ -83,6 +103,9 @@ class csv_logger():
                 writer.writerow(header)
     
     def write_state(self, state):
+        if not(self.header_written):
+            self.write_train_header()
+            self.header_written = True
         with open(os.path.join(self.logpath, 'logs.csv'), 'a', encoding='UTF8') as f:
             writer = csv.writer(f)
             if self.train_mode == 'mmd':
@@ -91,3 +114,15 @@ class csv_logger():
                 writer.writerow([str(state['epoch']), str(state['scalars']['total-train-loss']), state['scalars']['total-val-loss'], str(state['scalars']['val-acc'])])
             else:
                 raise NotImplementedError
+
+    def write_test_results(self, state):
+        if self.train_mode == 'adversarial':
+            raise NotImplementedError
+        else:
+            header = ['Test-Accuracy', 'SVM-Accuracy', 'NB-Accuracy', 'XGB-Accuracy']
+            row = [str(state['scalars']['05-Scores/test-acc']), str(state['scalars']['05-Scores/svm-acc']), str(state['scalars']['05-Scores/nb-acc']), str(state['scalars']['05-Scores/xgb-acc'])]
+
+        with open(os.path.join(self.logpath, 'test_logs.csv'), 'a', encoding='UTF8') as f:
+            writer = csv.writer(f)
+            writer.writerow(header)
+            writer.writerow(row)

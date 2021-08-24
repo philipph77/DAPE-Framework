@@ -10,8 +10,9 @@ from multi_source_framework import Framework
 import datasets
 import pipeline_helper
 import hyperparam_schedulers
+from helper_logging import tensorboard_logger, print_logger, csv_logger
 
-def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs=dict(), scheduler_kwargs=dict(), train_method_kwargs=dict()):
+def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
     if  platform.system() == 'Darwin':
         # MacBook
         path = '../../Datasets/private_encs/'
@@ -27,6 +28,15 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weigh
         adversarial = True
     else:
         adversarial = False
+
+    used_hyperparams = {
+            'data_sources': pipeline_helper.datasources_to_binary(data_sources),
+            'encoder': 'DCN',
+            'latent_dim': int(latent_dim),
+            'kappa_mode': str(loss_weight_scheduler),
+        }
+
+    logging_daemons=[tensorboard_logger(run_name, train_mode), print_logger(train_mode), csv_logger(os.path.join(logpath, run_name), train_mode)]
     
     train_datasource_files = [os.path.join(path,'train',f) for f in sorted(os.listdir(os.path.join(path, 'train'))) if f.endswith('.npz') and not('test' in f)]
     validation_datasource_files = [os.path.join(path,'val', f) for f in sorted(os.listdir(os.path.join(path, 'val'))) if f.endswith('.npz') and not('test' in f)]
@@ -50,11 +60,11 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weigh
     validation_dataloader = DataLoader(validation_data, batch_size=BATCHSIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
     if adversarial:
-        train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam_scheduler=loss_weight_scheduler, max_epochs=300, scheduler_kwargs=scheduler_kwargs, **train_method_kwargs)
+        train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, lam_scheduler=loss_weight_scheduler, max_epochs=300, **train_method_kwargs)
     elif train_mode == 'mmd':
-        train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa_scheduler=loss_weight_scheduler, max_epochs=300, scheduler_kwargs=scheduler_kwargs, **train_method_kwargs)
+        train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, kappa_scheduler=loss_weight_scheduler, max_epochs=10, **train_method_kwargs)
     else:
-        train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=300, **train_method_kwargs)
+        train(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, max_epochs=300, **train_method_kwargs)
 
     best_state = torch.load(os.path.join(logpath, run_name, 'best_model.pt'))
     model.load_state_dict(best_state['state_dict'])
@@ -63,13 +73,13 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weigh
     test_dataloader = DataLoader(test_data, batch_size=BATCHSIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
     if adversarial:
-        test_adversarial(model, test_dataloader, run_name, logpath)
+        test_adversarial(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams)
     else:
-        test(model, test_dataloader, run_name, logpath)
+        test(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams)
 
-def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs=dict(), scheduler_kwargs=dict(), train_method_kwargs=dict()):
+def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
     try:
-        pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs, scheduler_kwargs, train_method_kwargs)
+        pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs, train_method_kwargs)
     except Exception as e:
         pipeline_helper.send_mail_notification('Fehler', run_name, e)
         print(e)
@@ -82,14 +92,14 @@ if __name__ == '__main__':
     for run_id in range(10):
         for kappa in kappas:
             for latent_dim in latent_dims:
-                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
+                pipeline(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
+                #### AUF SAVERUN UMSTELLEN!!
                 architectures.DeepConvNetEncoder,
                 latent_dim,
                 'mmd',
                 'DCN-1111-%i-mmd-%4.2f-v7-%i'%(latent_dim, kappa, run_id),
-                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule,
+                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
                 logpath='../logs_v7/',
-                scheduler_kwargs=dict(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
                 train_method_kwargs=dict(early_stopping_after_epochs=50)
                 )
     
@@ -101,9 +111,8 @@ if __name__ == '__main__':
                 latent_dim,
                 'mmd',
                 'DCN-1111-%i-mmd-%4.2f-v7-%i-noes'%(latent_dim, kappa, run_id),
-                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule,
+                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
                 logpath='../logs_v7/',
-                scheduler_kwargs=dict(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
                 train_method_kwargs=dict(early_stopping_after_epochs=300)
                 )
 

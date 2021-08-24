@@ -1,3 +1,14 @@
+def datasources_to_binary(data_sources):
+    binary = ''
+    possible_sources = ['SEED', 'SEED_IV', 'DEAP', 'DREAMER']
+    for source in possible_sources:
+        if source in data_sources:
+            binary +='1'
+        else:
+            binary +='0'
+    return binary
+
+
 def filter_datasource_files(datasource_files, data_sources):
     filtered_list = list()
     for data_source in data_sources:

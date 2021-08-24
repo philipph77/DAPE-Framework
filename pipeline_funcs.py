@@ -4,15 +4,18 @@ import torch.optim as optim
 import os
 import numpy as np
 from sklearn.metrics import accuracy_score, classification_report
+from sklearn.model_selection import train_test_split
+from sklearn.svm import SVC
+from sklearn.naive_bayes import GaussianNB
+from sklearn.ensemble import GradientBoostingClassifier
 import time
 from tqdm import trange, tqdm
 import csv
 from pipeline_helper import MMD_loss
 import hyperparam_schedulers
-from helper_logging import tensorboard_logger, print_logger, csv_logger
 
 
-def train(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=500, early_stopping_after_epochs=20):
+def train(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, max_epochs=500, early_stopping_after_epochs=20):
     """Trains a Multi-Source Framework and logs relevant data to file
 
     Args:
@@ -27,7 +30,6 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
     Returns:
         [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
     """
-    logging_daemons=[tensorboard_logger(run_name, 'standard'), print_logger('standard'), csv_logger(os.path.join(logpath, run_name), 'standard')] 
     #setup
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -120,7 +122,7 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, max
     torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
     return 1
 
-def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, lam_scheduler=hyperparam_schedulers.constant_schedule, max_epochs=500, early_stopping_after_epochs=20, scheduler_kwargs=dict(value=0.05)):
+def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, lam_scheduler, max_epochs=500, early_stopping_after_epochs=20):
     """Trains a Multi-Source Framework and logs relevant data to file
 
     Args:
@@ -173,7 +175,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
         cla_train_loss = 0.
         adv_train_loss = 0.
         total_train_loss = 0.
-        lam = lam_scheduler(epoch, scheduler_kwargs)
+        lam = lam_scheduler[epoch]
         for x_list, y_true, d_true in tqdm(train_dataloader):
             #optimizer.zero_grad()
             for param in model.parameters():
@@ -269,7 +271,7 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
     torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
     return 1
 
-def test(model, test_dataloader, run_name, logpath):
+def test(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams=dict()):
     """Calculates and logs the achieved accuracy of a trained Framework on a testset
 
     Args:
@@ -279,38 +281,67 @@ def test(model, test_dataloader, run_name, logpath):
         logpath ([string]): the path, where you want to save the logfiles
 
     Returns:
-        [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
-    """    
-    if os.path.isfile(os.path.join(logpath, run_name, 'test_logs.csv')):
-        print("LogFile already exists! Rename or remove it, and restart the testing")
-        return 0
-    header = ['Test Accuracy']
-    with open(os.path.join(logpath, run_name, 'test_logs.csv'), 'w', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        writer.writerow(header)
-
+        [int]: a status code, 0 - testing failed, 1 - training was completed sucessfully
+    """
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
     model.eval()
     with torch.no_grad():
-        acc = 0.
-        for x_test_list, y_true, _ in test_dataloader:
+        y_true_all = list()
+        d_true_all = list()
+        y_pred_all = list()
+        z_pred_all = list()
+        for x_test_list, y_true, d_true in test_dataloader:
             x_test_list = [x_i.to(device) for x_i in x_test_list]
             y_true = y_true.to(device)
             y_true = torch.flatten(torch.transpose(y_true,0,1))
-            y_test_pred = model(x_test_list)
+            y_test_pred, z_test_pred = model(x_test_list, output_latent_representation=True)
             y_test_pred.squeeze_()
-            acc += accuracy_score(y_true.detach().cpu().numpy(), np.argmax(y_test_pred.detach().cpu().numpy(), axis=1))
-    acc = acc / len(test_dataloader)
-    print("Test-Accuracy: %4.2f"%(acc))
+            y_true_all.append(np.expand_dims(y_true.detach().cpu().numpy(),1))
+            d_true = torch.flatten(torch.transpose(d_true,0,1))
+            d_true_all.append(d_true.detach().cpu().numpy())
+            y_pred_all.append(y_test_pred.detach().cpu().numpy())
+            z_test_pred = torch.cat((z_test_pred), dim=0)
+            z_pred_all.append(z_test_pred.detach().cpu().numpy())
+        y_true_all = np.concatenate(y_true_all, axis=0)
+        d_true_all = np.concatenate(d_true_all, axis=0)
+        y_pred_all = np.concatenate(y_pred_all, axis=0)
+        z_pred_all = np.squeeze(np.concatenate(z_pred_all, axis=0))
+        y_pred_all = np.argmax(y_pred_all, axis=1)
 
-    with open(os.path.join(logpath, run_name, 'test_logs.csv'), 'a', encoding='UTF8') as f:
-        writer = csv.writer(f)
-        writer.writerow([str(acc)])
+        test_acc = accuracy_score(y_true_all, y_pred_all)
+
+        svm = SVC()
+        nb = GaussianNB()
+        xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
+
+        z_fit, z_score, d_fit, d_score = train_test_split(z_pred_all, d_true_all, test_size=0.2, random_state=7, stratify=y_pred_all)
+
+        svm.fit(z_fit, d_fit)
+        nb.fit(z_fit, d_fit)
+        xgb.fit(z_fit, d_fit)
+
+        svm_acc = svm.score(z_score, d_score)
+        nb_acc = nb.score(z_score, d_score)
+        xgb_acc = xgb.score(z_score, d_score)
+
+    state = {
+        'run-name': run_name,
+        'scalars': {
+            '05-Scores/test-acc': test_acc,
+            '05-Scores/svm-acc': svm_acc,
+            '05-Scores/nb-acc': nb_acc,
+            '05-Scores/xgb-acc': xgb_acc
+        },
+        'hyperparams': used_hyperparams,
+    }
+
+    for daemon in logging_daemons:
+        daemon.write_test_results(state)
     
     return 1
 
-def test_adversarial(model, test_dataloader, run_name, logpath):
+def test_adversarial(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams=dict()):
     """Calculates and logs the achieved accuracy of a trained Framework on a testset
 
     Args:
@@ -455,7 +486,7 @@ def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, 
     
     return 1
 
-def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, kappa_scheduler=hyperparam_schedulers.constant_schedule, max_epochs=500, early_stopping_after_epochs=50, scheduler_kwargs=dict(value=1)):
+def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, kappa_scheduler, max_epochs=500, early_stopping_after_epochs=50):
     """Trains a Multi-Source Framework and logs relevant data to file
         A Maximum-Mean-Discrepancy-Loss Term is added to the CE-Loss, in order to align the distributions from the encoder
     Args:
@@ -470,8 +501,6 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
     Returns:
         [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
     """ 
-    
-    logging_daemons=[tensorboard_logger(run_name, 'mmd'), print_logger('mmd'), csv_logger(os.path.join(logpath, run_name), 'mmd')]
 
     #setup
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -489,8 +518,10 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
         total_train_loss = 0.
         total_mmd_loss = 0.
         total_ce_loss = 0.
-        kappa = kappa_scheduler(epoch, **scheduler_kwargs)
-        for x_list,y_true, _ in tqdm(train_dataloader):
+        d_train_all = list()
+        z_train_all = list()
+        kappa = kappa_scheduler[epoch]
+        for x_list,y_true, d_true in tqdm(train_dataloader):
             #optimizer.zero_grad()
             for param in model.parameters():
                 param.grad = None
@@ -507,6 +538,16 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             total_ce_loss += ce_loss.item()
             total_mmd_loss += mmd_loss.item()
             total_train_loss += total_loss.item()
+
+            d_true = torch.flatten(torch.transpose(d_true,0,1))
+            d_train_all.append(d_true.detach().cpu().numpy())
+            z_train_batch = torch.cat((z_list), dim=0)
+            z_train_all.append(z_train_batch.detach().cpu().numpy())
+            break
+        
+        d_train_all = np.concatenate(d_train_all, axis=0)
+        z_train_all = np.squeeze(np.concatenate(z_train_all, axis=0))
+
         total_ce_loss = total_ce_loss / len(train_dataloader)
         total_mmd_loss = total_mmd_loss / len(train_dataloader)
         total_train_loss = total_train_loss / len(train_dataloader)
@@ -518,7 +559,9 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             total_val_ce_loss = 0.
             y_true_all = list()
             y_pred_all = list()
-            for x_val_list, y_true, _ in validation_dataloader:
+            d_val_all = list()
+            z_val_all = list()
+            for x_val_list, y_true, d_true in validation_dataloader:
                 x_val_list = [x_i.to(device) for x_i in x_val_list]
                 y_true = y_true.to(device)
                 y_true = torch.flatten(torch.transpose(y_true,0,1))
@@ -528,6 +571,15 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 total_val_mmd_loss += MMD_loss(z_val_list, 'rbf', 4).item()
                 y_true_all.append(np.expand_dims(y_true.detach().cpu().numpy(),1))
                 y_pred_all.append(y_val_pred.detach().cpu().numpy())
+
+                d_true = torch.flatten(torch.transpose(d_true,0,1))
+                d_val_all.append(d_true.detach().cpu().numpy())
+                z_val_batch = torch.cat((z_list), dim=0)
+                z_val_all.append(z_val_batch.detach().cpu().numpy())
+
+            d_val_all = np.concatenate(d_val_all, axis=0)
+            z_val_all = np.squeeze(np.concatenate(z_val_all, axis=0))
+
             y_true_all = np.concatenate(y_true_all, axis=0)
             y_pred_all = np.concatenate(y_pred_all, axis=0)
             y_pred_all = np.argmax(y_pred_all, axis=1)
@@ -560,7 +612,13 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 'model': model,
             },
             'classification-report': report,
-            'images': {}
+            'images': {},
+            'embeddings': {
+                'z-train': z_train_all,
+                'd-train': d_train_all,
+                'z-val': z_train_all,
+                'd-val': d_train_all,
+            }
         }
         for daemon in logging_daemons:
             daemon.write_state(state)
