@@ -62,7 +62,7 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weigh
     if adversarial:
         train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, lam_scheduler=loss_weight_scheduler, max_epochs=300, **train_method_kwargs)
     elif train_mode == 'mmd':
-        train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, kappa_scheduler=loss_weight_scheduler, max_epochs=10, **train_method_kwargs)
+        train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, kappa_scheduler=loss_weight_scheduler, max_epochs=300, **train_method_kwargs)
     else:
         train(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, max_epochs=300, **train_method_kwargs)
 
@@ -92,8 +92,7 @@ if __name__ == '__main__':
     for run_id in range(10):
         for kappa in kappas:
             for latent_dim in latent_dims:
-                pipeline(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
-                #### AUF SAVERUN UMSTELLEN!!
+                pipeline_saverun(['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
                 architectures.DeepConvNetEncoder,
                 latent_dim,
                 'mmd',
