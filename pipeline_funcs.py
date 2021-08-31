@@ -8,6 +8,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.svm import SVC
 from sklearn.naive_bayes import GaussianNB
 from sklearn.ensemble import GradientBoostingClassifier
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 import time
 from tqdm import trange, tqdm
 import csv
@@ -312,26 +313,34 @@ def test(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperp
         test_acc = accuracy_score(y_true_all, y_pred_all)
 
         svm = SVC()
+        linear_svm = SVC(kernel='linear')
         nb = GaussianNB()
         xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
+        lda = LinearDiscriminantAnalysis()
 
         z_fit, z_score, d_fit, d_score = train_test_split(z_pred_all, d_true_all, test_size=0.2, random_state=7, stratify=y_pred_all)
 
         svm.fit(z_fit, d_fit)
+        linear_svm.fit(z_fit, d_fit)
         nb.fit(z_fit, d_fit)
         xgb.fit(z_fit, d_fit)
+        lda.fit(z_fit, d_fit)
 
         svm_acc = svm.score(z_score, d_score)
+        linear_svm_acc = linear_svm.score(z_score, d_score)
         nb_acc = nb.score(z_score, d_score)
         xgb_acc = xgb.score(z_score, d_score)
+        lda_acc = lda.score(z_score, d_score)
 
     state = {
         'run-name': run_name,
         'scalars': {
             '05-Scores/test-acc': test_acc,
             '05-Scores/svm-acc': svm_acc,
+            '05-Scores/lsvm-acc': linear_svm_acc,
             '05-Scores/nb-acc': nb_acc,
-            '05-Scores/xgb-acc': xgb_acc
+            '05-Scores/xgb-acc': xgb_acc,
+            '05-Scores/lda-acc': lda_acc,
         },
         'hyperparams': used_hyperparams,
     }
