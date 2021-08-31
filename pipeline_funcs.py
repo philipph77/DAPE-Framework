@@ -318,7 +318,7 @@ def test(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperp
         xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
         lda = LinearDiscriminantAnalysis()
 
-        z_fit, z_score, d_fit, d_score = train_test_split(z_pred_all, d_true_all, test_size=0.2, random_state=7, stratify=y_pred_all)
+        z_fit, z_score, d_fit, d_score = train_test_split(z_pred_all, d_true_all, test_size=0.2, random_state=7, stratify=d_true_all)
 
         svm.fit(z_fit, d_fit)
         linear_svm.fit(z_fit, d_fit)
@@ -565,7 +565,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             nb = GaussianNB()
             xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
             lda = LinearDiscriminantAnalysis()
-            z_fit, z_score, d_fit, d_score = train_test_split(z_train_all, d_train_all, test_size=0.2, random_state=7, stratify=y_true_all)
+            z_fit, z_score, d_fit, d_score = train_test_split(z_train_all, d_train_all, test_size=0.2, random_state=7, stratify=d_train_all)
             svm.fit(z_fit, d_fit)
             linear_svm.fit(z_fit, d_fit)
             nb.fit(z_fit, d_fit)
@@ -576,11 +576,11 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             train_nb_acc = nb.score(z_score, d_score)
             train_xgb_acc = xgb.score(z_score, d_score)
             train_lda_acc = lda.score(z_score, d_score)
-            print(f"[{run_name}-Train] SVM-Accuracy: {train_svm_acc:.2f} -LSVM-Accuracy: {train_linear_svm_acc:.2f} - NB-Accuracy: {train_nb_acc:.2f} - XGB-Accuracy: {train_xgb_acc:.2f} - LDA-Accuracy: {train_lda_acc:.2f}")
 
         total_ce_loss = total_ce_loss / len(train_dataloader)
         total_mmd_loss = total_mmd_loss / len(train_dataloader)
         total_train_loss = total_train_loss / len(train_dataloader)
+        
         # Validation
         model.eval()
         with torch.no_grad():
@@ -617,7 +617,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 nb = GaussianNB()
                 xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
                 lda = LinearDiscriminantAnalysis()
-                z_fit, z_score, d_fit, d_score = train_test_split(z_val_all, d_val_all, test_size=0.2, random_state=7, stratify=y_true_all)
+                z_fit, z_score, d_fit, d_score = train_test_split(z_val_all, d_val_all, test_size=0.2, random_state=7, stratify=d_val_all)
                 svm.fit(z_fit, d_fit)
                 linear_svm.fit(z_fit, d_fit)
                 nb.fit(z_fit, d_fit)
