@@ -710,3 +710,160 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
         
     torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
     return 1
+
+def train_singlesource(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, max_epochs=500, early_stopping_after_epochs=20):
+    """Trains a Multi-Source Framework and logs relevant data to file
+
+    Args:
+        model ([Framework (PyTorch Model)]): The PyTorch Framework, that you want to train
+        train_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the training data
+        validation_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the testing data
+        run_name ([string]): a unique name, to identify the run later on
+        logpath ([string]): the path, where you want to save the logfiles
+        max_epochs (int, optional): Maximum number of epochs you want to train. Defaults to 500.
+        early_stopping_after_epochs (int, optional): The number of epochs without improvement in validation loss, the training should be stopped afer. Defaults to 20.
+
+    Returns:
+        [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
+    """
+    #setup
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    #torch.backends.cudnn.benchmark = True
+    optimizer = optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    criterion = nn.CrossEntropyLoss()
+    min_loss = np.infty
+    early_stopping_wait = 0
+
+    for epoch in range(1,max_epochs+1):
+        # Training
+        model.train()
+        start_time = time.time()
+        train_loss = 0.
+        for x_list,y_true in tqdm(train_dataloader):
+            #optimizer.zero_grad()
+            for param in model.parameters():
+                param.grad = None
+            x_list = [x_i.to(device) for x_i in x_list]
+            y_true = y_true.to(device)
+            y_true = torch.flatten(torch.transpose(y_true,0,1))
+            y_pred = model(x_list)
+            y_pred.squeeze_()
+            loss = criterion(y_pred, y_true)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+        train_loss = train_loss / len(train_dataloader)
+        # Validation
+        model.eval()
+        with torch.no_grad():
+            val_loss = 0.
+            val_acc = 0.
+            y_true_all = list()
+            y_pred_all = list()
+            for x_val_list, y_true in validation_dataloader:
+                x_val_list = [x_i.to(device) for x_i in x_val_list]
+                y_true = y_true.to(device)
+                y_true = torch.flatten(torch.transpose(y_true,0,1))
+                y_val_pred = model(x_val_list)
+                y_val_pred.squeeze_()
+                val_loss += criterion(y_val_pred,y_true).item()
+                y_true_all.append(np.expand_dims(y_true.detach().cpu().numpy(),1))
+                y_pred_all.append(y_val_pred.detach().cpu().numpy())
+            y_true_all = np.concatenate(y_true_all, axis=0)
+            y_pred_all = np.concatenate(y_pred_all, axis=0)
+            y_pred_all = np.argmax(y_pred_all, axis=1)
+            val_acc = accuracy_score(y_true_all, y_pred_all)
+            report = classification_report(y_true_all, y_pred_all, target_names=['Negative', 'Neutral', 'Positive'], output_dict=True)
+            val_loss = val_loss / len(validation_dataloader)
+            end_time = time.time()
+
+        # Logging
+        state = {
+            'run-name': run_name,
+            'epoch': epoch,
+            'start-time': start_time,
+            'end-time': end_time,
+            'scalars': {
+                'total-train-loss': train_loss,
+                'total-val-loss' : val_loss,
+                'val-acc': val_acc,
+            },
+            'models': {
+                'model': model,
+            },
+            'classification-report': report,
+        }
+
+        for daemon in logging_daemons:
+            daemon.write_state(state)
+
+        # Early Stopping
+        if val_loss < min_loss:
+            early_stopping_wait=0
+            min_loss = val_loss
+            best_state = {
+                    'epoch': epoch,
+                    'state_dict': model.state_dict(),
+                    'train_loss': train_loss,
+                    'val_loss': val_loss,
+                    'val_acc': val_acc,
+                    'optimizer' : optimizer.state_dict(),
+                }
+        else:
+            early_stopping_wait+=1    
+            if early_stopping_wait > early_stopping_after_epochs:
+                print("Early Stopping")
+                break
+        
+    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
+    return 1
+
+def test_singlesource(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams=dict()):
+    """Calculates and logs the achieved accuracy of a trained Framework on a testset
+
+    Args:
+        model ([Framework (PyTorch Model)]): The PyTorch Framework, that you want to train
+        test_dataloader ([torch.utils.data.DataLoader]): A DataLoader for the training data
+        run_name ([string]): a unique name, to identify the run later on
+        logpath ([string]): the path, where you want to save the logfiles
+
+    Returns:
+        [int]: a status code, 0 - testing failed, 1 - training was completed sucessfully
+    """
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
+    model.eval()
+    with torch.no_grad():
+        y_true_all = list()
+        y_pred_all = list()
+        z_pred_all = list()
+        for x_test_list, y_true in test_dataloader:
+            x_test_list = [x_i.to(device) for x_i in x_test_list]
+            y_true = y_true.to(device)
+            y_true = torch.flatten(torch.transpose(y_true,0,1))
+            y_test_pred, z_test_pred = model(x_test_list, output_latent_representation=True)
+            y_test_pred.squeeze_()
+            y_true_all.append(np.expand_dims(y_true.detach().cpu().numpy(),1))
+            y_pred_all.append(y_test_pred.detach().cpu().numpy())
+            z_test_pred = torch.cat((z_test_pred), dim=0)
+            z_pred_all.append(z_test_pred.detach().cpu().numpy())
+        y_true_all = np.concatenate(y_true_all, axis=0)
+        y_pred_all = np.concatenate(y_pred_all, axis=0)
+        z_pred_all = np.squeeze(np.concatenate(z_pred_all, axis=0))
+        y_pred_all = np.argmax(y_pred_all, axis=1)
+
+        test_acc = accuracy_score(y_true_all, y_pred_all)
+
+    state = {
+        'run-name': run_name,
+        'scalars': {
+            '05-Scores/test-acc': test_acc,
+        },
+        'hyperparams': used_hyperparams,
+    }
+
+    for daemon in logging_daemons:
+        daemon.write_test_results(state)
+    
+    return 1

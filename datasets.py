@@ -51,12 +51,14 @@ class SingleSourceDataset(Dataset):
         return self.length
 
     def __getitem__(self, idx):
+        x_item = list()
         x = self.x[idx,:,:].unsqueeze_(0)
         y = self.y[idx].reshape(-1,1)
         if self.normalize:
             x = torch.from_numpy(normalize(x.squeeze_(), axis=1)).type(torch.FloatTensor)
             x.unsqueeze_(0)
-        return x, y
+        x_item.append(x)
+        return x_item, y
 
 
 def test_dimensions():

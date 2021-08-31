@@ -4,10 +4,11 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 class tensorboard_logger():
-    def __init__(self, run_name, train_mode, version):
+    def __init__(self, run_name, train_mode, version, write_embeddings=False):
         self.run_name = run_name
         self.writer = SummaryWriter('../logs_'+version+'/tensorboard_logs/'+self.run_name+'/')
         self.train_mode = train_mode
+        self.write_embeddings = write_embeddings
         #print("Hi - I am going to handle your Tensorboard Logs")
 
     def write_state(self,state):
@@ -28,10 +29,11 @@ class tensorboard_logger():
         ## Accuracies
         self.writer.add_scalar("03-Validation-Accuracy/Accuracy", state['scalars']['val-acc'], state['epoch'])
 
+        if self.write_embeddings:
         # Latent Representation
-        if state['epoch'] in [1,5,6,10,20,30,40,50,75,100,150,200,250,300]:
-            self.writer.add_embedding(state['embeddings']['z-train'], state['embeddings']['d-train'], global_step=state['epoch'], tag='Train-Data')
-            self.writer.add_embedding(state['embeddings']['z-val'], state['embeddings']['d-val'], global_step=state['epoch'], tag='Validation-Data')
+            if state['epoch'] in [1,5,6,10,20,30,40,50,75,100,150,200,250,300]:
+                self.writer.add_embedding(state['embeddings']['z-train'], state['embeddings']['d-train'], global_step=state['epoch'], tag='Train-Data')
+                self.writer.add_embedding(state['embeddings']['z-val'], state['embeddings']['d-val'], global_step=state['epoch'], tag='Validation-Data')
 
         ## Classification Report
         targets = ['Negative', 'Neutral', 'Positive']
@@ -45,8 +47,9 @@ class tensorboard_logger():
             self.writer.add_histogram(name, torch.histc(params), state['epoch'])
 
         ## Domain Invariance
-        for key in state['domain-invariance'].keys():
-            self.writer.add_scalar(f"06-Domain-Invariance/{key}", state['domain-invariance'][key], state['epoch'])
+        if not(self.train_mode=='single-source'):
+            for key in state['domain-invariance'].keys():
+                self.writer.add_scalar(f"06-Domain-Invariance/{key}", state['domain-invariance'][key], state['epoch'])
 
 
         self.writer.flush()
@@ -71,7 +74,7 @@ class print_logger():
             print(f"[{state['run-name']}] Train-SVM-Accuracy: {state['domain-invariance']['train_svm_acc']:.2f} - Train-LSVM-Accuracy: {state['domain-invariance']['train_linear_svm_acc']:.2f} - Train-NB-Accuracy: {state['domain-invariance']['train_nb_acc']:.2f} - Train-XGB-Accuracy: {state['domain-invariance']['train_xgb_acc']:.2f} - Train-LDA-Accuracy: {state['domain-invariance']['train_lda_acc']:.2f}") 
             print(f"[{state['run-name']}] Val-SVM-Accuracy: {state['domain-invariance']['val_svm_acc']:.2f} - Val-LSVM-Accuracy: {state['domain-invariance']['val_linear_svm_acc']:.2f} - Val-NB-Accuracy: {state['domain-invariance']['val_nb_acc']:.2f} - Val-XGB-Accuracy: {state['domain-invariance']['val_xgb_acc']:.2f} - Val-LDA-Accuracy: {state['domain-invariance']['val_lda_acc']:.2f}") 
 
-        elif self.train_mode == 'standard':
+        elif self.train_mode == 'standard' or self.train_mode=='single-source':
             print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"
         %(state['run-name'], state['epoch'], state['scalars']['total-train-loss'], state['scalars']['total-val-loss'], state['scalars']['val-acc'], state['end-time']-state['start-time']))
         else:
@@ -80,9 +83,11 @@ class print_logger():
     def write_test_results(self, state):
         if self.train_mode == 'adversarial':
             raise NotImplementedError
-        else:
+        elif self.train_mode == 'standard' or self.train_mode=='mmd':
             print("[%s] Test-Accuracy: %4.2f - SVM-Accuracy: %4.2f -LSVM-Accuracy: %4.2f - NB-Accuracy: %4.2f - XGB-Accuracy: %4.2f - LDA-Accuracy: %4.2f"
             %(state['run-name'], state['scalars']['05-Scores/test-acc'], state['scalars']['05-Scores/svm-acc'], state['scalars']['05-Scores/lsvm-acc'], state['scalars']['05-Scores/nb-acc'], state['scalars']['05-Scores/xgb-acc'], state['scalars']['05-Scores/lda-acc']))
+        elif self.train_mode == 'single-source':
+            print("[%s] Test-Accuracy: %4.2f"%(state['run-name'], state['scalars']['05-Scores/test-acc']))
 
 class csv_logger():
     def __init__(self, logpath, train_mode):
@@ -98,11 +103,11 @@ class csv_logger():
             os.makedirs(os.path.join(self.logpath))
         elif os.path.isfile(os.path.join(self.logpath, 'logs.csv')):
             print("LogFile already exists! Rename or remove it, and restart the training")
-            raise NameError
+            raise Exception
         
         if self.train_mode == 'mmd':
             header = ['Epoch', 'kappa', 'Total-Train-Loss', 'CLA-Train-Loss', 'MMD-Train-Loss', 'Total-Validation-Loss', 'CLA-Validation-Loss', 'MMD-Validation-Loss', 'Validation-Accuracy']
-        elif self.train_mode == 'standard':
+        elif self.train_mode == 'standard' or self.train_mode == 'single-source':
             header = ['Epoch', 'Train-Loss', 'Validation-Loss', 'Validation-Accuracy']
         else:
             raise NotImplementedError
@@ -121,12 +126,11 @@ class csv_logger():
         
         if self.train_mode == 'mmd' or self.train_mode == 'standard':
             header = ['Epoch', 'Train-SVM-Acc', 'Train-LSVM-Acc', 'Train-NB-Acc', 'Train-XGB-Acc', 'Train-LDA-ACC', 'Val-SVM-Acc', 'Val-LSVM-Acc', 'Val-NB-Acc', 'Val-XGB-Acc', 'Val-LDA-ACC']
-        else:
-            raise NotImplementedError
-        
-        with open(os.path.join(self.logpath, 'domain_invariance.csv'), 'w', encoding='UTF8') as f:
+            with open(os.path.join(self.logpath, 'domain_invariance.csv'), 'w', encoding='UTF8') as f:
                 writer = csv.writer(f)
                 writer.writerow(header)
+        elif self.train_mode == 'adversarial':
+            raise NotImplementedError
 
     
     def write_state(self, state):
@@ -138,13 +142,14 @@ class csv_logger():
             writer = csv.writer(f)
             if self.train_mode == 'mmd':
                 writer.writerow([str(state['epoch']), str(state['kappa']), str(state['scalars']['total-train-loss']), str(state['scalars']['ce-train-loss']), str(state['scalars']['mmd-train-loss']), str(state['scalars']['total-val-loss']), str(state['scalars']['ce-val-loss']), str(state['scalars']['mmd-val-loss']), str(state['scalars']['val-acc'])])
-            elif self.train_mode == 'standard':
+            elif self.train_mode == 'standard' or self.train_mode == 'single-source':
                 writer.writerow([str(state['epoch']), str(state['scalars']['total-train-loss']), state['scalars']['total-val-loss'], str(state['scalars']['val-acc'])])
             else:
                 raise NotImplementedError
-        with open(os.path.join(self.logpath, 'domain_invariance.csv'), 'a', encoding='UTF8') as f:
-            writer = csv.writer(f)
-            if self.train_mode == 'mmd' or self.train_mode == 'standard':
+        
+        if self.train_mode == 'mmd' or self.train_mode == 'standard':
+            with open(os.path.join(self.logpath, 'domain_invariance.csv'), 'a', encoding='UTF8') as f:
+                writer = csv.writer(f)
                 writer.writerow([str(state['epoch']),
                 str(state['domain-invariance']['train_svm_acc']),
                 str(state['domain-invariance']['train_linear_svm_acc']),
@@ -157,15 +162,18 @@ class csv_logger():
                 str(state['domain-invariance']['val_xgb_acc']),
                 str(state['domain-invariance']['val_lda_acc']),
                 ])
-            else:
-                raise NotImplementedError
+        elif self.train_mode == 'adversarial':
+            raise NotImplementedError
 
     def write_test_results(self, state):
         if self.train_mode == 'adversarial':
             raise NotImplementedError
-        else:
+        elif self.train_mode == 'standard' or self.train_mode=='mmd':
             header = ['Test-Accuracy', 'SVM-Accuracy', 'Linear-SVM-Accuracy', 'NB-Accuracy', 'XGB-Accuracy', 'LDA-Accuracy']
             row = [str(state['scalars']['05-Scores/test-acc']), str(state['scalars']['05-Scores/svm-acc']), str(state['scalars']['05-Scores/lsvm-acc']), str(state['scalars']['05-Scores/nb-acc']), str(state['scalars']['05-Scores/xgb-acc']), str(state['scalars']['05-Scores/lda-acc'])]
+        elif self.train_mode == 'single-source':
+            header = ['Test-Accuracy']
+            row = [str(state['scalars']['05-Scores/test-acc'])]
 
         with open(os.path.join(self.logpath, 'test_logs.csv'), 'a', encoding='UTF8') as f:
             writer = csv.writer(f)
