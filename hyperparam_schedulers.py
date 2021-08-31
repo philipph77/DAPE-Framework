@@ -2,7 +2,7 @@ import numpy as np
 
 class constant_schedule():
     def __init__(self, value=1):
-        self.value = 1
+        self.value = value
 
     def __getitem__(self, epoch):
         return self.value
