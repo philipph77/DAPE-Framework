@@ -74,7 +74,8 @@ class print_logger():
         if self.train_mode == 'adversarial':
             raise NotImplementedError
         else:
-            print("[%s] Test-Accuracy: %4.2f - SVM-Accuracy: %4.2f - NB-Accuracy: %4.2f - XGB-Accuracy: %4.2f"%(state['run-name'], state['scalars']['05-Scores/test-acc'], state['scalars']['05-Scores/svm-acc'], state['scalars']['05-Scores/nb-acc'], state['scalars']['05-Scores/xgb-acc']))
+            print("[%s] Test-Accuracy: %4.2f - SVM-Accuracy: %4.2f -LSVM-Accuracy: %4.2f - NB-Accuracy: %4.2f - XGB-Accuracy: %4.2f - LDA-Accuracy: %4.2f"
+            %(state['run-name'], state['scalars']['05-Scores/test-acc'], state['scalars']['05-Scores/svm-acc'], state['scalars']['05-Scores/lsvm-acc'], state['scalars']['05-Scores/nb-acc'], state['scalars']['05-Scores/xgb-acc'], state['scalars']['05-Scores/lda-acc']))
 
 class csv_logger():
     def __init__(self, logpath, train_mode):
@@ -120,8 +121,8 @@ class csv_logger():
         if self.train_mode == 'adversarial':
             raise NotImplementedError
         else:
-            header = ['Test-Accuracy', 'SVM-Accuracy', 'NB-Accuracy', 'XGB-Accuracy']
-            row = [str(state['scalars']['05-Scores/test-acc']), str(state['scalars']['05-Scores/svm-acc']), str(state['scalars']['05-Scores/nb-acc']), str(state['scalars']['05-Scores/xgb-acc'])]
+            header = ['Test-Accuracy', 'SVM-Accuracy', 'Linear-SVM-Accuracy', 'NB-Accuracy', 'XGB-Accuracy', 'LDA-Accuracy']
+            row = [str(state['scalars']['05-Scores/test-acc']), str(state['scalars']['05-Scores/svm-acc']), str(state['scalars']['05-Scores/lsvm-acc']), str(state['scalars']['05-Scores/nb-acc']), str(state['scalars']['05-Scores/xgb-acc']), str(state['scalars']['05-Scores/lda-acc'])]
 
         with open(os.path.join(self.logpath, 'test_logs.csv'), 'a', encoding='UTF8') as f:
             writer = csv.writer(f)
