@@ -510,6 +510,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
     Returns:
         [int]: a status code, 0 - training failed, 1 - training was completed sucessfully
     """ 
+    DOMAIN_INVARIANCE_MONITORING = True
 
     #setup
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -529,6 +530,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
         total_ce_loss = 0.
         d_train_all = list()
         z_train_all = list()
+        y_true_all = list()
         kappa = kappa_scheduler[epoch]
         for x_list,y_true, d_true in tqdm(train_dataloader):
             #optimizer.zero_grad()
@@ -547,14 +549,34 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             total_ce_loss += ce_loss.item()
             total_mmd_loss += mmd_loss.item()
             total_train_loss += total_loss.item()
-
             d_true = torch.flatten(torch.transpose(d_true,0,1))
             d_train_all.append(d_true.detach().cpu().numpy())
             z_train_batch = torch.cat((z_list), dim=0)
             z_train_all.append(z_train_batch.detach().cpu().numpy())
+            y_true_all.append(np.expand_dims(y_true.detach().cpu().numpy(),1))
         
+        y_true_all = np.concatenate(y_true_all, axis=0)
         d_train_all = np.concatenate(d_train_all, axis=0)
         z_train_all = np.squeeze(np.concatenate(z_train_all, axis=0))
+
+        if DOMAIN_INVARIANCE_MONITORING:
+            svm = SVC()
+            linear_svm = SVC(kernel='linear')
+            nb = GaussianNB()
+            xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
+            lda = LinearDiscriminantAnalysis()
+            z_fit, z_score, d_fit, d_score = train_test_split(z_train_all, d_train_all, test_size=0.2, random_state=7, stratify=y_true_all)
+            svm.fit(z_fit, d_fit)
+            linear_svm.fit(z_fit, d_fit)
+            nb.fit(z_fit, d_fit)
+            xgb.fit(z_fit, d_fit)
+            lda.fit(z_fit, d_fit)
+            train_svm_acc = svm.score(z_score, d_score)
+            train_linear_svm_acc = linear_svm.score(z_score, d_score)
+            train_nb_acc = nb.score(z_score, d_score)
+            train_xgb_acc = xgb.score(z_score, d_score)
+            train_lda_acc = lda.score(z_score, d_score)
+            print(f"[{run_name}-Train] SVM-Accuracy: {train_svm_acc:.2f} -LSVM-Accuracy: {train_linear_svm_acc:.2f} - NB-Accuracy: {train_nb_acc:.2f} - XGB-Accuracy: {train_xgb_acc:.2f} - LDA-Accuracy: {train_lda_acc:.2f}")
 
         total_ce_loss = total_ce_loss / len(train_dataloader)
         total_mmd_loss = total_mmd_loss / len(train_dataloader)
@@ -585,8 +607,27 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 z_val_batch = torch.cat((z_val_list), dim=0)
                 z_val_all.append(z_val_batch.detach().cpu().numpy())
 
+            y_true_all = np.concatenate(y_true_all, axis=0)
             d_val_all = np.concatenate(d_val_all, axis=0)
             z_val_all = np.squeeze(np.concatenate(z_val_all, axis=0))
+
+            if DOMAIN_INVARIANCE_MONITORING:
+                svm = SVC()
+                linear_svm = SVC(kernel='linear')
+                nb = GaussianNB()
+                xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
+                lda = LinearDiscriminantAnalysis()
+                z_fit, z_score, d_fit, d_score = train_test_split(z_val_all, d_val_all, test_size=0.2, random_state=7, stratify=y_true_all)
+                svm.fit(z_fit, d_fit)
+                linear_svm.fit(z_fit, d_fit)
+                nb.fit(z_fit, d_fit)
+                xgb.fit(z_fit, d_fit)
+                lda.fit(z_fit, d_fit)
+                val_svm_acc = svm.score(z_score, d_score)
+                val_linear_svm_acc = linear_svm.score(z_score, d_score)
+                val_nb_acc = nb.score(z_score, d_score)
+                val_xgb_acc = xgb.score(z_score, d_score)
+                val_lda_acc = lda.score(z_score, d_score)
 
             y_true_all = np.concatenate(y_true_all, axis=0)
             y_pred_all = np.concatenate(y_pred_all, axis=0)
@@ -626,6 +667,19 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 'd-train': d_train_all,
                 'z-val': z_val_all,
                 'd-val': d_val_all,
+            },
+            'domain-invariance': {
+                'train_svm_acc': train_svm_acc,
+                'train_linear_svm_acc': train_linear_svm_acc,
+                'train_nb_acc': train_nb_acc,
+                'train_xgb_acc': train_xgb_acc,
+                'train_lda_acc': train_lda_acc,
+                'val_svm_acc': val_svm_acc,
+                'val_linear_svm_acc': val_linear_svm_acc,
+                'val_nb_acc': val_nb_acc,
+                'val_xgb_acc': val_xgb_acc,
+                'val_lda_acc': val_lda_acc,
+
             }
         }
         for daemon in logging_daemons:

@@ -4,9 +4,9 @@ import torch
 from torch.utils.tensorboard import SummaryWriter
 
 class tensorboard_logger():
-    def __init__(self, run_name, train_mode):
+    def __init__(self, run_name, train_mode, version):
         self.run_name = run_name
-        self.writer = SummaryWriter('../tensorboard_logs/'+self.run_name+'/')
+        self.writer = SummaryWriter('../logs_'+version+'/tensorboard_logs/'+self.run_name+'/')
         self.train_mode = train_mode
         #print("Hi - I am going to handle your Tensorboard Logs")
 
@@ -44,6 +44,11 @@ class tensorboard_logger():
         for name, params in state['models']['model'].named_parameters():
             self.writer.add_histogram(name, torch.histc(params), state['epoch'])
 
+        ## Domain Invariance
+        for key in state['domain-invariance'].keys():
+            self.writer.add_scalar(f"06-Domain-Invariance/{key}", state['domain-invariance'][key], state['epoch'])
+
+
         self.writer.flush()
 
     def write_test_results(self, state):
@@ -61,9 +66,11 @@ class print_logger():
 
     def write_state(self, state):
         if self.train_mode == 'mmd':
-             print("[%s] Epoch %i: - kappa: %4.2f - Total-Train-Loss: %4.2f - CLA-Train-Loss: %4.2f - MMD-Train-Loss: %4.2f - Total-Val-Loss: %4.2f - CLA-Val-Loss: %4.2f - MMD-Validation-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(
+            print("[%s] Epoch %i: - kappa: %4.2f - Total-Train-Loss: %4.2f - CLA-Train-Loss: %4.2f - MMD-Train-Loss: %4.2f - Total-Val-Loss: %4.2f - CLA-Val-Loss: %4.2f - MMD-Validation-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(
             state['run-name'], state['epoch'], state['kappa'], state['scalars']['total-train-loss'], state['scalars']['ce-train-loss'], state['scalars']['mmd-train-loss'], state['scalars']['total-val-loss'], state['scalars']['ce-val-loss'], state['scalars']['mmd-val-loss'], state['scalars']['val-acc'], state['end-time']-state['start-time']))
-        
+            print(f"[{state['run-name']}] Train-SVM-Accuracy: {state['domain-invariance']['train_svm_acc']:.2f} - Train-LSVM-Accuracy: {state['domain-invariance']['train_linear_svm_acc']:.2f} - Train-NB-Accuracy: {state['domain-invariance']['train_nb_acc']:.2f} - Train-XGB-Accuracy: {state['domain-invariance']['train_xgb_acc']:.2f} - Train-LDA-Accuracy: {state['domain-invariance']['train_lda_acc']:.2f}") 
+            print(f"[{state['run-name']}] Val-SVM-Accuracy: {state['domain-invariance']['val_svm_acc']:.2f} - Val-LSVM-Accuracy: {state['domain-invariance']['val_linear_svm_acc']:.2f} - Val-NB-Accuracy: {state['domain-invariance']['val_nb_acc']:.2f} - Val-XGB-Accuracy: {state['domain-invariance']['val_xgb_acc']:.2f} - Val-LDA-Accuracy: {state['domain-invariance']['val_lda_acc']:.2f}") 
+
         elif self.train_mode == 'standard':
             print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"
         %(state['run-name'], state['epoch'], state['scalars']['total-train-loss'], state['scalars']['total-val-loss'], state['scalars']['val-acc'], state['end-time']-state['start-time']))
@@ -103,10 +110,29 @@ class csv_logger():
         with open(os.path.join(self.logpath, 'logs.csv'), 'w', encoding='UTF8') as f:
                 writer = csv.writer(f)
                 writer.writerow(header)
+
+    def write_domain_invariance_header(self):
+        # Prepare Logging
+        if not (os.path.isdir(self.logpath)):
+            os.makedirs(os.path.join(self.logpath))
+        elif os.path.isfile(os.path.join(self.logpath, 'domain_invariance.csv')):
+            print("LogFile already exists! Rename or remove it, and restart the training")
+            raise NameError
+        
+        if self.train_mode == 'mmd' or self.train_mode == 'standard':
+            header = ['Epoch', 'Train-SVM-Acc', 'Train-LSVM-Acc', 'Train-NB-Acc', 'Train-XGB-Acc', 'Train-LDA-ACC', 'Val-SVM-Acc', 'Val-LSVM-Acc', 'Val-NB-Acc', 'Val-XGB-Acc', 'Val-LDA-ACC']
+        else:
+            raise NotImplementedError
+        
+        with open(os.path.join(self.logpath, 'domain_invariance.csv'), 'w', encoding='UTF8') as f:
+                writer = csv.writer(f)
+                writer.writerow(header)
+
     
     def write_state(self, state):
         if not(self.header_written):
             self.write_train_header()
+            self.write_domain_invariance_header()
             self.header_written = True
         with open(os.path.join(self.logpath, 'logs.csv'), 'a', encoding='UTF8') as f:
             writer = csv.writer(f)
@@ -114,6 +140,23 @@ class csv_logger():
                 writer.writerow([str(state['epoch']), str(state['kappa']), str(state['scalars']['total-train-loss']), str(state['scalars']['ce-train-loss']), str(state['scalars']['mmd-train-loss']), str(state['scalars']['total-val-loss']), str(state['scalars']['ce-val-loss']), str(state['scalars']['mmd-val-loss']), str(state['scalars']['val-acc'])])
             elif self.train_mode == 'standard':
                 writer.writerow([str(state['epoch']), str(state['scalars']['total-train-loss']), state['scalars']['total-val-loss'], str(state['scalars']['val-acc'])])
+            else:
+                raise NotImplementedError
+        with open(os.path.join(self.logpath, 'domain_invariance.csv'), 'a', encoding='UTF8') as f:
+            writer = csv.writer(f)
+            if self.train_mode == 'mmd' or self.train_mode == 'standard':
+                writer.writerow([str(state['epoch']),
+                str(state['domain-invariance']['train_svm_acc']),
+                str(state['domain-invariance']['train_linear_svm_acc']),
+                str(state['domain-invariance']['train_nb_acc']),
+                str(state['domain-invariance']['train_xgb_acc']),
+                str(state['domain-invariance']['train_lda_acc']),
+                str(state['domain-invariance']['val_svm_acc']),
+                str(state['domain-invariance']['val_linear_svm_acc']),
+                str(state['domain-invariance']['val_nb_acc']),
+                str(state['domain-invariance']['val_xgb_acc']),
+                str(state['domain-invariance']['val_lda_acc']),
+                ])
             else:
                 raise NotImplementedError
 

@@ -12,7 +12,7 @@ import pipeline_helper
 import hyperparam_schedulers
 from helper_logging import tensorboard_logger, print_logger, csv_logger
 
-def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
+def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
     if  platform.system() == 'Darwin':
         # MacBook
         path = '../../Datasets/private_encs/'
@@ -36,7 +36,7 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weigh
             'kappa_mode': str(loss_weight_scheduler),
         }
 
-    logging_daemons=[tensorboard_logger(run_name, train_mode), print_logger(train_mode), csv_logger(os.path.join(logpath, run_name), train_mode)]
+    logging_daemons=[tensorboard_logger(run_name, train_mode, version), print_logger(train_mode), csv_logger(os.path.join(logpath, run_name), train_mode)]
     
     train_datasource_files = [os.path.join(path,'train',f) for f in sorted(os.listdir(os.path.join(path, 'train'))) if f.endswith('.npz') and not('test' in f)]
     validation_datasource_files = [os.path.join(path,'val', f) for f in sorted(os.listdir(os.path.join(path, 'val'))) if f.endswith('.npz') and not('test' in f)]
@@ -77,9 +77,9 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weigh
     else:
         test(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams)
 
-def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
+def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
     try:
-        pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, loss_weight_scheduler, logpath, enc_kwargs, train_method_kwargs)
+        pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs, train_method_kwargs)
     except Exception as e:
         pipeline_helper.send_mail_notification('Fehler', run_name, e)
         print(e)
@@ -90,12 +90,13 @@ if __name__ == '__main__':
 
     for run_id in range(num_runs):
         for latent_dim in latent_dims:
-            pipeline(
+            pipeline_saverun(
             ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
             architectures.DeepConvNetEncoder,
             latent_dim,
             'mmd',
             'DCN-1111-%i-mmd-0-v7-%i'%(latent_dim, run_id),
+            'v8',
             loss_weight_scheduler=hyperparam_schedulers.constant_schedule(value=0.),
             logpath='../logs_v8/',
             train_method_kwargs=dict(early_stopping_after_epochs=50)
@@ -107,6 +108,7 @@ if __name__ == '__main__':
             latent_dim,
             'mmd',
             'DCN-1111-%i-mmd-clc-v7-%i'%(latent_dim, run_id),
+            'v8',
             loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
             logpath='../logs_v8/',
             train_method_kwargs=dict(early_stopping_after_epochs=50)
