@@ -3,6 +3,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+"""
+This file contains several architectures i.e. encoders and decoders that can be used for the dape framework.
+"""
+
+
 class EEGNetEncoder(nn.Module):
     def __init__(self, channels, temporal_filters, spatial_filters, pointwise_filters, dropout_propability, latent_dim, use_constrained_conv=True):
         """ For details about the Parameters see

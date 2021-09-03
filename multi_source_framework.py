@@ -6,6 +6,11 @@ import numpy as np
 import architectures
 import datasets
 
+"""
+implementation of the DAPE Framework as described in
+Multi-Source Learning: Learning Data-Source Invariant Representations using Shared or Private Encoders
+"""
+
 DEBUG_MODE = True
 
 if not(DEBUG_MODE):
