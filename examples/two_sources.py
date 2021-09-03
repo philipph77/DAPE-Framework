@@ -10,6 +10,9 @@ import os
 import numpy as np
 
 def run_two_sources():
+    """
+    runs an exemplary DAPE Framework on two data-sources
+    """    
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
     else:

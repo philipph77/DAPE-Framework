@@ -13,6 +13,20 @@ import hyperparam_schedulers
 from helper_logging import tensorboard_logger, print_logger, csv_logger
 
 def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
+    """ Trains and Tests a DAPE Framework
+
+    Args:
+        data_sources ([int]): determines the data-source that should be used, e.g. 1011 uses SEED, doesn't uses SEED-IV, and uses DEAP and DREAMER
+        encoder ([pytorch model]): the model that should be used as encoder
+        latent_dim ([int]): number of features in the latent representation
+        train_mode ([string]): either 'standard', 'mmd', or 'adversarial'
+        run_name ([string]): identifier
+        version ([string]): identifier for version control
+        loss_weight_scheduler ([scheduler-object]): scheduler for the adversarial or mmd loss weight
+        logpath ([string]): path, where the log-files should be saved to
+        enc_kwargs ([dict], optional): kwargs that should be passed to the encoder. Defaults to dict().
+        train_method_kwargs ([dict], optional): kwargs that should be passed to the train method. Defaults to dict().
+    """    
     if  platform.system() == 'Darwin':
         # MacBook
         path = '../../Datasets/private_encs/'
@@ -88,30 +102,42 @@ if __name__ == '__main__':
     num_runs = 5
     latent_dims = [10, 50, 100, 1000]
 
-    for run_id in range(num_runs):
-        for latent_dim in latent_dims:
-            pipeline_saverun(
+    pipeline_saverun(
             ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
             architectures.DeepConvNetEncoder,
-            latent_dim,
+            50,
             'mmd',
-            'DCN-1111-%i-mmd-0-v7-%i'%(latent_dim, run_id),
-            'v8',
-            loss_weight_scheduler=hyperparam_schedulers.constant_schedule(value=0.),
-            logpath='../logs_v8/',
+            'DCN-1111-50-mmd-1-vThesis-0',
+            'vThesis',
+            loss_weight_scheduler=hyperparam_schedulers.constant_schedule(value=1.),
+            logpath='../logs_vThesis/',
             train_method_kwargs=dict(early_stopping_after_epochs=50)
             )
 
-            pipeline_saverun(
-            ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
-            architectures.DeepConvNetEncoder,
-            latent_dim,
-            'mmd',
-            'DCN-1111-%i-mmd-clc-v7-%i'%(latent_dim, run_id),
-            'v8',
-            loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
-            logpath='../logs_v8/',
-            train_method_kwargs=dict(early_stopping_after_epochs=50)
-            )
+    # for run_id in range(num_runs):
+    #     for latent_dim in latent_dims:
+    #         pipeline_saverun(
+    #         ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
+    #         architectures.DeepConvNetEncoder,
+    #         latent_dim,
+    #         'mmd',
+    #         'DCN-1111-%i-mmd-0-v7-%i'%(latent_dim, run_id),
+    #         'v8',
+    #         loss_weight_scheduler=hyperparam_schedulers.constant_schedule(value=0.),
+    #         logpath='../logs_v8/',
+    #         train_method_kwargs=dict(early_stopping_after_epochs=50)
+    #         )
+
+    #         pipeline_saverun(
+    #         ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
+    #         architectures.DeepConvNetEncoder,
+    #         latent_dim,
+    #         'mmd',
+    #         'DCN-1111-%i-mmd-clc-v7-%i'%(latent_dim, run_id),
+    #         'v8',
+    #         loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
+    #         logpath='../logs_v8/',
+    #         train_method_kwargs=dict(early_stopping_after_epochs=50)
+    #         )
 
     

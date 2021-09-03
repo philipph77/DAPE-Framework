@@ -9,6 +9,10 @@ import platform
 import os
 
 def run_four_sources():
+    """
+    runs an exemplary DAPE Framework on four datasources
+    """    
+    
     if  platform.system() == 'Darwin':
         path = '../../Datasets/private_encs/'
     else:

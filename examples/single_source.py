@@ -14,7 +14,10 @@ import pipeline_helper
 import hyperparam_schedulers
 from helper_logging import tensorboard_logger, print_logger, csv_logger
 
-def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
+def single_source(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
+    """runs a single_source DAPE Framework
+        For information on the args please refer to pipeline.py
+        """   
     if  platform.system() == 'Darwin':
         # MacBook
         path = '../../Datasets/private_encs/'
@@ -68,7 +71,7 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, l
 
 def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
     try:
-        pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs, train_method_kwargs)
+        single_source(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs, train_method_kwargs)
     except Exception as e:
         pipeline_helper.send_mail_notification('Fehler', run_name, e)
         print(e)
@@ -79,7 +82,7 @@ if __name__ == '__main__':
     for latent_dim in latent_dims:
         for data_source in ['SEED', 'SEED_IV', 'DEAP', 'DREAMER']:
             data_source_binary = pipeline_helper.datasources_to_binary([data_source])
-            pipeline(
+            single_source(
                 [data_source],
                 architectures.DeepConvNetEncoder,
                 latent_dim,
