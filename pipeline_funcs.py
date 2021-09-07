@@ -16,6 +16,7 @@ import csv
 from pipeline_helper import MMD_loss, fit_predict_classifier
 import hyperparam_schedulers
 from joblib import Parallel, delayed
+os.system("taskset -p 0xff %d" % os.getpid())
 
 
 def train(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, max_epochs=500, early_stopping_after_epochs=20):
@@ -622,25 +623,13 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 z_fit, z_score, d_fit, d_score = train_test_split(z_val_all, d_val_all, test_size=0.2, random_state=7, stratify=d_val_all)
                 # Fit all classifiers
                 sequential_start = time.time()
-                svm.fit(z_fit, d_fit)
+                #svm.fit(z_fit, d_fit)
                 linear_svm.fit(z_fit, d_fit)
                 nb.fit(z_fit, d_fit)
                 xgb.fit(z_fit, d_fit)
                 lda.fit(z_fit, d_fit)
                 # Score all classifiers
-                val_svm_acc = svm.score(z_score, d_score)
-                val_linear_svm_acc = linear_svm.score(z_score, d_score)
-                val_nb_acc = nb.score(z_score, d_score)
-                val_xgb_acc = xgb.score(z_score, d_score)
-                val_lda_acc = lda.score(z_score, d_score)
-                sequential_end = time.time()
-                print(f"{val_svm_acc} - {val_linear_svm_acc} - {val_nb_acc} - {val_xgb_acc} - {val_lda_acc}")
-                # Parallel Mode
-                parallel_start = time.time()
                 val_svm_acc, val_linear_svm_acc, val_nb_acc, val_xgb_acc, val_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, xgb, lda])
-                parallel_end = time.time()
-                print(f"{val_svm_acc} - {val_linear_svm_acc} - {val_nb_acc} - {val_xgb_acc} - {val_lda_acc}")
-                print(f"Sequential {sequential_end-sequential_start} - Parallel: {parallel_end-parallel_start}")
 
 
             y_true_all = np.concatenate(y_true_all, axis=0)
