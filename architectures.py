@@ -68,36 +68,37 @@ class EEGNetEncoder(nn.Module):
         return z
 
 class DeepConvNetEncoder(nn.Module):
-    def __init__(self, channels, latent_dim, use_dropout=True, use_batchnorm=True):
+    def __init__(self, channels, latent_dim, use_dropout=True, use_batchnorm=True, use_test_time_batch_statistics=False):
         super().__init__()
         self.use_dropout = use_dropout
         self.use_batchnorm = use_batchnorm
+        self.track_running_stats = not(use_test_time_batch_statistics)
 
         # Block 1
         self.conv1_0 = nn.Conv2d(1, 25, (1, 5) ) 
         self.conv1_1 = nn.Conv2d(25, 25, (channels,1), bias=False)
-        self.bn1 = nn.BatchNorm2d(25, eps=1e-05, momentum=0.1)
+        self.bn1 = nn.BatchNorm2d(25, eps=1e-05, momentum=0.1, track_running_stats=self.track_running_stats)
         self.act1 = nn.ELU()
         self.pool1 = nn.MaxPool2d((1,2), stride=(1,2))
         self.drop1 = nn.Dropout(0.5)
 
         # Block 2
         self.conv2 = nn.Conv2d(25, 50, (1,5), bias=False)
-        self.bn2 = nn.BatchNorm2d(50, eps=1e-05, momentum=0.1)
+        self.bn2 = nn.BatchNorm2d(50, eps=1e-05, momentum=0.1, track_running_stats=self.track_running_stats)
         self.act2 = nn.ELU()
         self.pool2 = nn.MaxPool2d((1,2), stride=(1,2))
         self.drop2 = nn.Dropout(0.5)
 
         # Block 3
         self.conv3 = nn.Conv2d(50, 100, (1,5), bias=False)
-        self.bn3 = nn.BatchNorm2d(100, eps=1e-05, momentum=0.1)
+        self.bn3 = nn.BatchNorm2d(100, eps=1e-05, momentum=0.1, track_running_stats=self.track_running_stats)
         self.act3 = nn.ELU()
         self.pool3 = nn.MaxPool2d((1,2), stride=(1,2))
         self.drop3 = nn.Dropout(0.5)
 
         # Block 4
         self.conv4 = nn.Conv2d(100, 200, (1,5), bias=False)
-        self.bn4 = nn.BatchNorm2d(200, eps=1e-05, momentum=0.1)
+        self.bn4 = nn.BatchNorm2d(200, eps=1e-05, momentum=0.1, track_running_stats=self.track_running_stats)
         self.act4 = nn.ELU()
         self.pool4 = nn.MaxPool2d((1,2), stride=(1,2))
         self.drop4 = nn.Dropout(0.5)
