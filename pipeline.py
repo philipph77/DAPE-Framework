@@ -115,6 +115,18 @@ if __name__ == '__main__':
         train_method_kwargs=dict(early_stopping_after_epochs=50)
     )
 
+    pipeline_saverun(
+        ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
+        architectures.DeepConvNetEncoder,
+        latent_dim,
+        'mmd',
+        'DCN-1111-%i-mmd-clc-v8-bn_test_stats_es25-0'%(latent_dim),
+        'v8',
+        loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
+        logpath='../logs_v8/',
+        enc_kwargs = dict(use_test_time_batch_statistics=True),
+        train_method_kwargs=dict(early_stopping_after_epochs=25)
+    )
 
     # for run_id in range(num_runs):
     #     pipeline_saverun(
