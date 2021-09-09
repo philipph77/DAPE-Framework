@@ -569,17 +569,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
             lda = LinearDiscriminantAnalysis()
             z_fit, z_score, d_fit, d_score = train_test_split(z_train_all, d_train_all, test_size=0.2, random_state=7, stratify=d_train_all)
-            svm.fit(z_fit, d_fit)
-            linear_svm.fit(z_fit, d_fit)
-            nb.fit(z_fit, d_fit)
-            xgb.fit(z_fit, d_fit)
-            lda.fit(z_fit, d_fit)
-            train_svm_acc = svm.score(z_score, d_score)
-            train_linear_svm_acc = linear_svm.score(z_score, d_score)
-            train_nb_acc = nb.score(z_score, d_score)
-            train_xgb_acc = xgb.score(z_score, d_score)
-            train_lda_acc = lda.score(z_score, d_score)
-
+            train_svm_acc, train_linear_svm_acc, train_nb_acc, train_xgb_acc, train_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, xgb, lda])
         total_ce_loss = total_ce_loss / len(train_dataloader)
         total_mmd_loss = total_mmd_loss / len(train_dataloader)
         total_train_loss = total_train_loss / len(train_dataloader)
@@ -621,14 +611,6 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
                 lda = LinearDiscriminantAnalysis()
                 z_fit, z_score, d_fit, d_score = train_test_split(z_val_all, d_val_all, test_size=0.2, random_state=7, stratify=d_val_all)
-                # Fit all classifiers
-                sequential_start = time.time()
-                #svm.fit(z_fit, d_fit)
-                linear_svm.fit(z_fit, d_fit)
-                nb.fit(z_fit, d_fit)
-                xgb.fit(z_fit, d_fit)
-                lda.fit(z_fit, d_fit)
-                # Score all classifiers
                 val_svm_acc, val_linear_svm_acc, val_nb_acc, val_xgb_acc, val_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, xgb, lda])
 
 
