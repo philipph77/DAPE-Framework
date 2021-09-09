@@ -82,8 +82,8 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0, x_one_vs_all=None):
         
         if kernel == "multiscale":
             
-            #bandwidth_range = [0.2, 0.5, 0.9, 1.3]
-            bandwidth_range = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 5, 10, 15, 20, 25, 30, 35, 1e2, 1e3, 1e4, 1e5, 1e6]
+            bandwidth_range = [0.2, 0.5, 0.9, 1.3]
+            #bandwidth_range = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 5, 10, 15, 20, 25, 30, 35, 1e2, 1e3, 1e4, 1e5, 1e6]
             for a in bandwidth_range:
                 XX += a**2 * (a**2 + dxx)**-1
                 YY += a**2 * (a**2 + dyy)**-1
@@ -91,8 +91,8 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0, x_one_vs_all=None):
                 
         if kernel == "rbf":
         
-            #bandwidth_range = [10, 15, 20, 50]
-            bandwidth_range = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 5, 10, 15, 20, 25, 30, 35, 1e2, 1e3, 1e4, 1e5, 1e6]
+            bandwidth_range = [10, 15, 20, 50]
+            #bandwidth_range = [1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1, 5, 10, 15, 20, 25, 30, 35, 1e2, 1e3, 1e4, 1e5, 1e6]
             for a in bandwidth_range:
                 XX += torch.exp(-0.5*dxx/a)
                 YY += torch.exp(-0.5*dyy/a)
