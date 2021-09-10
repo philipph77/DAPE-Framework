@@ -524,7 +524,6 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
 
     for epoch in range(1,max_epochs+1):
         # Training
-        cp1 = time.time()
         model.train()
         start_time = time.time()
         total_train_loss = 0.
@@ -534,8 +533,6 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
         z_train_all = list()
         y_true_all = list()
         kappa = kappa_scheduler[epoch]
-        cp2 = time.time()
-        print(f"1 - {cp2-cp1}")
         for x_list,y_true, d_true in tqdm(train_dataloader):
             #optimizer.zero_grad()
             for param in model.parameters():
@@ -559,15 +556,9 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             z_train_all.append(z_train_batch.detach().cpu().numpy())
             y_true_all.append(np.expand_dims(y_true.detach().cpu().numpy(),1))
         
-        cp3 = time.time()
-        print(f"2 - {cp3-cp2}")
-        
         y_true_all = np.concatenate(y_true_all, axis=0)
         d_train_all = np.concatenate(d_train_all, axis=0)
         z_train_all = np.squeeze(np.concatenate(z_train_all, axis=0))
-
-        cp4 = time.time()
-        print(f"3 - {cp4-cp3}")
 
         if DOMAIN_INVARIANCE_MONITORING:
             svm = SVC()
@@ -577,16 +568,12 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             lda = LinearDiscriminantAnalysis()
             z_fit, z_score, d_fit, d_score = train_test_split(z_train_all, d_train_all, test_size=0.2, random_state=7, stratify=d_train_all)
             train_svm_acc, train_linear_svm_acc, train_nb_acc, train_xgb_acc, train_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, xgb, lda])
-        cp5 = time.time()
-        print(f"4 - {cp5-cp4}")
 
         total_ce_loss = total_ce_loss / len(train_dataloader)
         total_mmd_loss = total_mmd_loss / len(train_dataloader)
         total_train_loss = total_train_loss / len(train_dataloader)
         
         # Validation
-        cp6 = time.time()
-        print(f"5 - {cp6-cp5}")
         model.eval()
         with torch.no_grad():
             total_val_loss = 0.
@@ -612,15 +599,9 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 z_val_batch = torch.cat((z_val_list), dim=0)
                 z_val_all.append(z_val_batch.detach().cpu().numpy())
 
-            cp7 = time.time()
-            print(f"6 - {cp7-cp6}")
-
             y_true_all = np.concatenate(y_true_all, axis=0)
             d_val_all = np.concatenate(d_val_all, axis=0)
             z_val_all = np.squeeze(np.concatenate(z_val_all, axis=0))
-
-            cp8 = time.time()
-            print(f"7 - {cp8-cp7}")
 
             if DOMAIN_INVARIANCE_MONITORING:
                 svm = SVC()
@@ -631,25 +612,15 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 z_fit, z_score, d_fit, d_score = train_test_split(z_val_all, d_val_all, test_size=0.2, random_state=7, stratify=d_val_all)
                 val_svm_acc, val_linear_svm_acc, val_nb_acc, val_xgb_acc, val_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, xgb, lda])
 
-            cp9 = time.time()
-            print(f"8 - {cp9-cp8}")
-
             y_true_all = np.concatenate(y_true_all, axis=0)
             y_pred_all = np.concatenate(y_pred_all, axis=0)
             y_pred_all = np.argmax(y_pred_all, axis=1)
-            cp10 = time.time()
-            print(f"9 - {cp10-cp9}")
             val_acc = accuracy_score(y_true_all, y_pred_all)
             report = classification_report(y_true_all, y_pred_all, target_names=['Negative', 'Neutral', 'Positive'], output_dict=True)
-            cp11 = time.time()
-            print(f"10 - {cp11-cp10}")
             total_val_ce_loss = total_val_ce_loss / len(validation_dataloader)
             total_val_mmd_loss = total_val_mmd_loss / len(validation_dataloader)
             total_val_loss += total_val_ce_loss + kappa * total_val_mmd_loss
             end_time = time.time()
-
-            cp12 = time.time()
-            print(f"11 - {cp12-cp11}")
 
         # Logging
         state = {
@@ -695,14 +666,8 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             }
         }
 
-        cp13 = time.time()
-        print(f"12 - {cp13-cp12}")
-
         for daemon in logging_daemons:
             daemon.write_state(state)
-
-        cp14 = time.time()
-        print(f"13 - {cp14-cp13}")
 
         # Early Stopping
         if total_val_loss < min_loss:
