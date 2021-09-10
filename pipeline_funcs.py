@@ -567,7 +567,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
             #xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
             lda = LinearDiscriminantAnalysis()
             z_fit, z_score, d_fit, d_score = train_test_split(z_train_all, d_train_all, test_size=0.2, random_state=7, stratify=d_train_all)
-            train_svm_acc, train_linear_svm_acc, train_nb_acc, train_xgb_acc, train_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, lda])
+            train_svm_acc, train_linear_svm_acc, train_nb_acc, train_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, lda])
 
         total_ce_loss = total_ce_loss / len(train_dataloader)
         total_mmd_loss = total_mmd_loss / len(train_dataloader)
@@ -610,7 +610,7 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                 #xgb = GradientBoostingClassifier(n_estimators=100, learning_rate=1.0, max_depth=3, random_state=7)
                 lda = LinearDiscriminantAnalysis()
                 z_fit, z_score, d_fit, d_score = train_test_split(z_val_all, d_val_all, test_size=0.2, random_state=7, stratify=d_val_all)
-                val_svm_acc, val_linear_svm_acc, val_nb_acc, val_xgb_acc, val_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, lda])
+                val_svm_acc, val_linear_svm_acc, val_nb_acc, val_lda_acc = Parallel(n_jobs=4)(delayed(fit_predict_classifier)(z_fit, d_fit, z_score, d_score, clf) for clf in [svm, linear_svm, nb, lda])
 
             y_true_all = np.concatenate(y_true_all, axis=0)
             y_pred_all = np.concatenate(y_pred_all, axis=0)
