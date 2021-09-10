@@ -121,12 +121,8 @@ def MMD_loss(X_list ,kernel='rbf', num_choices=0, x_one_vs_all=None):
     return mmd_loss
 
 def fit_predict_classifier(z_fit, d_fit, z_score, d_score, clf):
-    print(f"Starting {clf}")
     clf.fit(z_fit, d_fit)
-    acc = clf.score(z_score, d_score)
-    print(f"Returning {clf}")
-    return acc
-    #return clf.score(z_score, d_score)
+    return clf.score(z_score, d_score)
 
 
 if __name__=='__main__':
