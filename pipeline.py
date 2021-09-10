@@ -12,7 +12,7 @@ import pipeline_helper
 import hyperparam_schedulers
 from helper_logging import tensorboard_logger, print_logger, csv_logger
 
-def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
+def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, domain_clfs=pipeline_helper.get_default_domain_clfs(), enc_kwargs=dict(), train_method_kwargs=dict()):
     """ Trains and Tests a DAPE Framework
 
     Args:
@@ -74,11 +74,11 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, l
     validation_dataloader = DataLoader(validation_data, batch_size=BATCHSIZE, shuffle=False, num_workers=NUM_WORKERS, pin_memory=True)
 
     if adversarial:
-        train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, lam_scheduler=loss_weight_scheduler, max_epochs=300, **train_method_kwargs)
+        train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, lam_scheduler=loss_weight_scheduler, **train_method_kwargs)
     elif train_mode == 'mmd':
-        train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, kappa_scheduler=loss_weight_scheduler, max_epochs=300, **train_method_kwargs)
+        train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, domain_clfs, kappa_scheduler=loss_weight_scheduler, **train_method_kwargs)
     else:
-        train(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, max_epochs=300, **train_method_kwargs)
+        train(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, **train_method_kwargs)
 
     best_state = torch.load(os.path.join(logpath, run_name, 'best_model.pt'))
     model.load_state_dict(best_state['state_dict'])
@@ -91,9 +91,9 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, l
     else:
         test(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams)
 
-def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs=dict(), train_method_kwargs=dict()):
+def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, domain_clfs=pipeline_helper.get_default_domain_clfs(), enc_kwargs=dict(), train_method_kwargs=dict()):
     try:
-        pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, enc_kwargs, train_method_kwargs)
+        pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, domain_clfs, enc_kwargs, train_method_kwargs)
     except Exception as e:
         pipeline_helper.send_mail_notification('Fehler', run_name, e)
         print(e)
@@ -102,7 +102,7 @@ if __name__ == '__main__':
     num_runs = 1
     latent_dim = 50
 
-    pipeline_saverun(
+    pipeline(
         ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
         architectures.DeepConvNetEncoder,
         latent_dim,
@@ -112,7 +112,7 @@ if __name__ == '__main__':
         loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
         logpath='../logs_v8/',
         enc_kwargs = dict(use_test_time_batch_statistics=True),
-        train_method_kwargs=dict(early_stopping_after_epochs=50)
+        train_method_kwargs=dict(early_stopping_after_epochs=50, max_epochs=2)
     )
 
     # pipeline_saverun(

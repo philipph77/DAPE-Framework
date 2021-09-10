@@ -124,6 +124,37 @@ def fit_predict_classifier(z_fit, d_fit, z_score, d_score, clf):
     clf.fit(z_fit, d_fit)
     return clf.score(z_score, d_score)
 
+def get_default_domain_clfs():
+    from sklearn.svm import SVC
+    from sklearn.svm import LinearSVC
+    from sklearn.naive_bayes import GaussianNB
+    from sklearn.ensemble import GradientBoostingClassifier
+    from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+
+    domain_clfs = {
+        0: {
+            'name': 'svm',
+            'class': SVC,
+            'kwargs': dict(),
+        },
+        1: {
+            'name': 'linear_svm',
+            'class': SVC,
+            'kwargs': dict(kernel='linear'),
+        },
+        2: {
+            'name': 'nb',
+            'class': GaussianNB,
+            'kwargs': dict(),
+        },
+        3: {
+            'name': 'lda',
+            'class': LinearDiscriminantAnalysis,
+            'kwargs': dict(),
+        },
+    }
+    return domain_clfs
+
 
 if __name__=='__main__':
     pass

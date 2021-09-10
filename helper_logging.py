@@ -48,8 +48,10 @@ class tensorboard_logger():
 
         ## Domain Invariance
         if not(self.train_mode=='single-source'):
-            for key in state['domain-invariance'].keys():
-                self.writer.add_scalar(f"06-Domain-Invariance/{key}", state['domain-invariance'][key], state['epoch'])
+            for key in state['domain-invariance']['train'].keys():
+                self.writer.add_scalar(f"06-Domain-Invariance/{key}", state['domain-invariance']['train'][key], state['epoch'])
+            for key in state['domain-invariance']['val'].keys():
+                self.writer.add_scalar(f"06-Domain-Invariance/{key}", state['domain-invariance']['val'][key], state['epoch'])
 
 
         self.writer.flush()
@@ -71,8 +73,16 @@ class print_logger():
         if self.train_mode == 'mmd':
             print("[%s] Epoch %i: - kappa: %4.2f - Total-Train-Loss: %4.2f - CLA-Train-Loss: %4.2f - MMD-Train-Loss: %4.2f - Total-Val-Loss: %4.2f - CLA-Val-Loss: %4.2f - MMD-Validation-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"%(
             state['run-name'], state['epoch'], state['kappa'], state['scalars']['total-train-loss'], state['scalars']['ce-train-loss'], state['scalars']['mmd-train-loss'], state['scalars']['total-val-loss'], state['scalars']['ce-val-loss'], state['scalars']['mmd-val-loss'], state['scalars']['val-acc'], state['end-time']-state['start-time']))
-            print(f"[{state['run-name']}] Train-SVM-Accuracy: {state['domain-invariance']['train_svm_acc']:.2f} - Train-LSVM-Accuracy: {state['domain-invariance']['train_linear_svm_acc']:.2f} - Train-NB-Accuracy: {state['domain-invariance']['train_nb_acc']:.2f} - Train-XGB-Accuracy: {state['domain-invariance']['train_xgb_acc']:.2f} - Train-LDA-Accuracy: {state['domain-invariance']['train_lda_acc']:.2f}") 
-            print(f"[{state['run-name']}] Val-SVM-Accuracy: {state['domain-invariance']['val_svm_acc']:.2f} - Val-LSVM-Accuracy: {state['domain-invariance']['val_linear_svm_acc']:.2f} - Val-NB-Accuracy: {state['domain-invariance']['val_nb_acc']:.2f} - Val-XGB-Accuracy: {state['domain-invariance']['val_xgb_acc']:.2f} - Val-LDA-Accuracy: {state['domain-invariance']['val_lda_acc']:.2f}") 
+            train_str = "[" + str(state['run-name']) + "] "
+            for name, value in state['domain-invariance']['train'].items():
+                train_str = train_str + name + ": {:4.2f} - ".format(value)
+            train_str = train_str[:-2]
+            val_str = "[" + str(state['run-name']) + "] "
+            for name, value in state['domain-invariance']['val'].items():
+                val_str = val_str + name + ": {:4.2f} - ".format(value)
+            val_str = val_str[:-2]
+            print(train_str)
+            print(val_str)
 
         elif self.train_mode == 'standard' or self.train_mode=='single-source':
             print("[%s] Epoch %i: - Train-Loss: %4.2f - Val-Loss: %4.2f - Val-Accuracy: %4.2f - Elapsed Time: %4.2f s"
@@ -116,7 +126,7 @@ class csv_logger():
                 writer = csv.writer(f)
                 writer.writerow(header)
 
-    def write_domain_invariance_header(self):
+    def write_domain_invariance_header(self, state):
         # Prepare Logging
         if not (os.path.isdir(self.logpath)):
             os.makedirs(os.path.join(self.logpath))
@@ -125,7 +135,9 @@ class csv_logger():
             raise NameError
         
         if self.train_mode == 'mmd' or self.train_mode == 'standard':
-            header = ['Epoch', 'Train-SVM-Acc', 'Train-LSVM-Acc', 'Train-NB-Acc', 'Train-XGB-Acc', 'Train-LDA-ACC', 'Val-SVM-Acc', 'Val-LSVM-Acc', 'Val-NB-Acc', 'Val-XGB-Acc', 'Val-LDA-ACC']
+            header = ['Epoch']
+            header.extend(name for name in state['domain-invariance']['train'])
+            header.extend(name for name in state['domain-invariance']['val'])
             with open(os.path.join(self.logpath, 'domain_invariance.csv'), 'w', encoding='UTF8') as f:
                 writer = csv.writer(f)
                 writer.writerow(header)
@@ -136,7 +148,7 @@ class csv_logger():
     def write_state(self, state):
         if not(self.header_written):
             self.write_train_header()
-            self.write_domain_invariance_header()
+            self.write_domain_invariance_header(state)
             self.header_written = True
         with open(os.path.join(self.logpath, 'logs.csv'), 'a', encoding='UTF8') as f:
             writer = csv.writer(f)
@@ -150,18 +162,10 @@ class csv_logger():
         if self.train_mode == 'mmd' or self.train_mode == 'standard':
             with open(os.path.join(self.logpath, 'domain_invariance.csv'), 'a', encoding='UTF8') as f:
                 writer = csv.writer(f)
-                writer.writerow([str(state['epoch']),
-                str(state['domain-invariance']['train_svm_acc']),
-                str(state['domain-invariance']['train_linear_svm_acc']),
-                str(state['domain-invariance']['train_nb_acc']),
-                str(state['domain-invariance']['train_xgb_acc']),
-                str(state['domain-invariance']['train_lda_acc']),
-                str(state['domain-invariance']['val_svm_acc']),
-                str(state['domain-invariance']['val_linear_svm_acc']),
-                str(state['domain-invariance']['val_nb_acc']),
-                str(state['domain-invariance']['val_xgb_acc']),
-                str(state['domain-invariance']['val_lda_acc']),
-                ])
+                row = [str(state['epoch'])]
+                row.extend(str(state['domain-invariance']['train'][name]) for name in state['domain-invariance']['train'])
+                row.extend(str(state['domain-invariance']['val'][name]) for name in state['domain-invariance']['val'])
+                writer.writerow(row)
         elif self.train_mode == 'adversarial':
             raise NotImplementedError
 
