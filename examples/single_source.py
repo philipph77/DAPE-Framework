@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../eeg_private_encoders/")
+sys.path.append("../")
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
@@ -25,8 +25,8 @@ def single_source(data_sources, encoder ,latent_dim, train_mode, run_name, versi
         NUM_WORKERS = 1
     else:
         # AWS
-        #path = '../Datasets/private_encs/'
-        path = '../Datasets/private_encs_new/'
+        #path = '../../Datasets/private_encs/'
+        path = '../../Datasets/private_encs_new/'
         BATCHSIZE = 256
         NUM_WORKERS = 4
 
