@@ -25,8 +25,8 @@ def single_source(data_sources, encoder ,latent_dim, train_mode, run_name, versi
         NUM_WORKERS = 1
     else:
         # AWS
-        #path = '../../Datasets/private_encs/'
-        path = '../../Datasets/private_encs_new/'
+        path = '../../Datasets/private_encs/'
+        #path = '../../Datasets/private_encs_new/'
         BATCHSIZE = 256
         NUM_WORKERS = 4
 
@@ -88,9 +88,9 @@ if __name__ == '__main__':
                 architectures.DeepConvNetEncoder,
                 latent_dim,
                 'single-source',
-                'DCN-%s-%i-ss-0-vPaper-%i'%(data_source_binary, latent_dim, run_id),
+                'DCN-%s-%i-ss-0-vPaper_o-%i'%(data_source_binary, latent_dim, run_id),
                 'vPaper',
                 loss_weight_scheduler=hyperparam_schedulers.constant_schedule(value=0.),
-                logpath='../logs_vPaper/',
+                logpath='../../logs_vPaper_o/',
                 train_method_kwargs=dict(early_stopping_after_epochs=50)
             )
