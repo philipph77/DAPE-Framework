@@ -34,7 +34,8 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, l
         NUM_WORKERS = 1
     else:
         # AWS
-        path = '../Datasets/private_encs/'
+        #path = '../Datasets/private_encs/'
+        path = '../Datasets/private_encs_new/'
         BATCHSIZE = 256
         NUM_WORKERS = 4
 
@@ -99,46 +100,30 @@ def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, ve
         print(e)
 
 if __name__ == '__main__':
-    num_runs = [1, 2, 3]
-    latent_dims = [50, 100, 200]
+    num_runs = [0,1,2,3,4]
+    latent_dim = 50
 
-    # for latent_dim in latent_dims:
-    #     pipeline_saverun(
-    #             ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
-    #             architectures.DeepConvNetEncoder,
-    #             latent_dim,
-    #             'mmd',
-    #             'DCN-1111-%i-mmd-1.0-v8-0'%(latent_dim),
-    #             'v8',
-    #             loss_weight_scheduler=hyperparam_schedulers.constant_schedule(value=1.),
-    #             logpath='../logs_v8/',
-    #             train_method_kwargs=dict(early_stopping_after_epochs=50)
-    #         )
-
-    for num_run in num_runs:
-        for latent_dim in latent_dims:
-            pipeline_saverun(
+    for run_id in num_runs:
+        pipeline_saverun(
                 ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
                 architectures.DeepConvNetEncoder,
                 latent_dim,
                 'mmd',
-                'DCN-1111-%i-mmd-clc-v8-bn_test_stats-%i'%(latent_dim, num_run),
-                'v8',
+                'DCN-1111-%i-mmd-clc-vPaper-DAPE-%i'%(latent_dim, run_id),
+                'vPaper',
                 loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
-                logpath='../logs_v8/',
-                enc_kwargs= dict(use_test_time_batch_statistics=True),
+                logpath='../logs_vPaper/',
                 train_method_kwargs=dict(early_stopping_after_epochs=50)
             )
-
-            pipeline_saverun(
+        pipeline_saverun(
                 ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
                 architectures.DeepConvNetEncoder,
                 latent_dim,
                 'mmd',
-                'DCN-1111-%i-mmd-1.0-v8-bn_test_stats-%i'%(latent_dim, num_run),
-                'v8',
-                loss_weight_scheduler=hyperparam_schedulers.constant_schedule(value=1.),
-                logpath='../logs_v8/',
+                'DCN-1111-%i-mmd-clc-vPaper-aDAPE-%i'%(latent_dim, run_id),
+                'vPaper',
+                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
+                logpath='../logs_vPaper/',
                 enc_kwargs= dict(use_test_time_batch_statistics=True),
                 train_method_kwargs=dict(early_stopping_after_epochs=50)
             )

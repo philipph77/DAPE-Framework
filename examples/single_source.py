@@ -25,7 +25,8 @@ def single_source(data_sources, encoder ,latent_dim, train_mode, run_name, versi
         NUM_WORKERS = 1
     else:
         # AWS
-        path = '../Datasets/private_encs/'
+        #path = '../Datasets/private_encs/'
+        path = '../Datasets/private_encs_new/'
         BATCHSIZE = 256
         NUM_WORKERS = 4
 
@@ -77,9 +78,9 @@ def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, ve
         print(e)
 
 if __name__ == '__main__':
-    latent_dims = [5,10,50,100, 1000]
+    latent_dim = 50
 
-    for latent_dim in latent_dims:
+    for run_id in [0,1,2,3,4]: 
         for data_source in ['SEED', 'SEED_IV', 'DEAP', 'DREAMER']:
             data_source_binary = pipeline_helper.datasources_to_binary([data_source])
             single_source(
@@ -87,9 +88,9 @@ if __name__ == '__main__':
                 architectures.DeepConvNetEncoder,
                 latent_dim,
                 'single-source',
-                'DCN-%s-%i-bs-0-vbs-0'%(data_source_binary, latent_dim),
-                'baseline',
+                'DCN-%s-%i-ss-0-vPaper-%i'%(data_source_binary, latent_dim, run_id),
+                'vPaper',
                 loss_weight_scheduler=hyperparam_schedulers.constant_schedule(value=0.),
-                logpath='../logs_baseline/',
+                logpath='../logs_vPaper/',
                 train_method_kwargs=dict(early_stopping_after_epochs=50)
             )
