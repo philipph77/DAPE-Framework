@@ -1,5 +1,5 @@
 import sys
-sys.path.append("../")
+sys.path.append("../eeg_private_encoders/")
 import torch
 from torch.utils.data import DataLoader
 import numpy as np
