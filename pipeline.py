@@ -34,8 +34,8 @@ def pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, l
         NUM_WORKERS = 1
     else:
         # AWS
-        #path = '../Datasets/private_encs/'
-        path = '../Datasets/private_encs_new/'
+        path = '../Datasets/private_encs/'
+        #path = '../Datasets/private_encs_new/'
         BATCHSIZE = 256
         NUM_WORKERS = 4
 
@@ -109,10 +109,10 @@ if __name__ == '__main__':
                 architectures.DeepConvNetEncoder,
                 latent_dim,
                 'mmd',
-                'DCN-1111-%i-mmd-clc-vPaper-DAPE-%i'%(latent_dim, run_id),
+                'DCN-1111-%i-mmd-clc-vPaper_o-DAPE-%i'%(latent_dim, run_id),
                 'vPaper',
                 loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
-                logpath='../logs_vPaper/',
+                logpath='../logs_vPaper_o/',
                 train_method_kwargs=dict(early_stopping_after_epochs=50)
             )
         pipeline_saverun(
@@ -120,10 +120,10 @@ if __name__ == '__main__':
                 architectures.DeepConvNetEncoder,
                 latent_dim,
                 'mmd',
-                'DCN-1111-%i-mmd-clc-vPaper-aDAPE-%i'%(latent_dim, run_id),
+                'DCN-1111-%i-mmd-clc-vPaper_o-aDAPE-%i'%(latent_dim, run_id),
                 'vPaper',
                 loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
-                logpath='../logs_vPaper/',
+                logpath='../logs_vPaper_o/',
                 enc_kwargs= dict(use_test_time_batch_statistics=True),
                 train_method_kwargs=dict(early_stopping_after_epochs=50)
             )
