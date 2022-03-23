@@ -15,7 +15,7 @@ If you find this work helpfull, please cite the paper, this repository is based 
 ```
 
 ## Description
-The DAPE Framework consists of mutliple encoders, one for each-data source. The encoder backbone can be chosen freely, it is also possible to use different encoders for different data-sources. The only constrain consists in the encoders outputs needing to have the same shape. The latent representations output by the encoders are used as input for a shared classifier, which makes predictions for each sample of each data-source. A visualization of the Framework is shown in the following figure. <br/> ![DAPE Framework](img/dape_architecture.png).
+The DAPE Framework consists of mutliple encoders, one for each-data source. The encoder backbone can be chosen freely, it is also possible to use different encoders for different data-sources. The only constrain consists in the encoders outputs needing to have the same shape. The latent representations output by the encoders are used as input for a shared classifier, which makes predictions for each sample of each data-source. A visualization of the Framework is shown in the following figure. <br/> ![DAPE Framework](img/dape_framework.png).
 
 ## How to use it
 In order to train the Framework, you can use the methods in `pipeline_funcs.py`, i.e. `train` and `test` to build yourself a custom pipeline. Else you can get a head start by using the method `pipeline` in the file `pipeline.py` to train and test a DAPE Framework. For more information on the methods parameters, please refer to the comments in the files.
