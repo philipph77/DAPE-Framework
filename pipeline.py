@@ -96,34 +96,22 @@ def pipeline_saverun(data_sources, encoder ,latent_dim, train_mode, run_name, ve
     try:
         pipeline(data_sources, encoder ,latent_dim, train_mode, run_name, version, loss_weight_scheduler, logpath, domain_clfs, enc_kwargs, train_method_kwargs)
     except Exception as e:
-        pipeline_helper.send_mail_notification('Fehler', run_name, e)
+        pipeline_helper.send_mail_notification(GMAIL_ADDRESS, PASSWORD, RECIPIENT, 'Fehler', run_name, e)
         print(e)
 
 if __name__ == '__main__':
-    num_runs = [0,1,2,3,4]
-    latent_dim = 50
+    GMAIL_ADDRESS = "",
+    PASSWORD = "",
+    RECIPIENT = ""
 
-    for run_id in num_runs:
-        pipeline_saverun(
-                ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
-                architectures.DeepConvNetEncoder,
-                latent_dim,
-                'mmd',
-                'DCN-1111-%i-mmd-clc-vPaper_o-DAPE-%i'%(latent_dim, run_id),
-                'vPaper_o',
-                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
-                logpath='../logs_vPaper_o/',
-                train_method_kwargs=dict(early_stopping_after_epochs=50)
-            )
-        pipeline_saverun(
-                ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
-                architectures.DeepConvNetEncoder,
-                latent_dim,
-                'mmd',
-                'DCN-1111-%i-mmd-clc-vPaper_o-aDAPE-%i'%(latent_dim, run_id),
-                'vPaper_o',
-                loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
-                logpath='../logs_vPaper_o/',
-                enc_kwargs= dict(use_test_time_batch_statistics=True),
-                train_method_kwargs=dict(early_stopping_after_epochs=50)
-            )
+    pipeline_saverun(
+            ['SEED', 'SEED_IV', 'DEAP', 'DREAMER'],
+            architectures.DeepConvNetEncoder,
+            50,
+            'mmd',
+            'run_name',
+            'v1',
+            loss_weight_scheduler=hyperparam_schedulers.constant_linear_constant_schedule(start_epoch=5, start_value=0, step_value=0.25, stop_epoch=70),
+            logpath='../logs/',
+            train_method_kwargs=dict(early_stopping_after_epochs=50)
+        )

@@ -19,10 +19,8 @@ if not(DEBUG_MODE):
 class autoencoder(nn.Module):
     def __init__(self, encoder, decoder):
         super().__init__()
-        self.encoder  = nn.ModuleList()
-        self.encoder.append(encoder)
-        self.decoder = nn.ModuleList()
-        self.decoder.append(decoder)
+        self.encoder  = nn.ModuleList(encoder)
+        self.decoder = nn.ModuleList(decoder)
 
     def forward(self,x):
         z_pred = self.encoder[0](x)

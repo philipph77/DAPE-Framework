@@ -1,6 +1,16 @@
 import numpy as np
 
-class constant_schedule():
+class hyperparam_schedule():
+    def __init__(self):
+        pass
+
+    def __getitem__(self):
+        pass
+
+    def __str__(self):
+        pass
+
+class constant_schedule(hyperparam_schedule):
     def __init__(self, value=1):
         self.value = value
 
@@ -10,7 +20,7 @@ class constant_schedule():
     def __str__(self):
         return f"C-{self.value}"
 
-class constant_linear_schedule():
+class constant_linear_schedule(hyperparam_schedule):
     def __init__(self, start_epoch=0, start_value=0, step_value=0.5):
         self.start_epoch = start_epoch
         self.start_value = start_value
@@ -26,7 +36,7 @@ class constant_linear_schedule():
         return f"CL-{self.start_epoch}-{self.start_value}-{self.step_value}"
 
 
-class linear_constant_schedule():
+class linear_constant_schedule(hyperparam_schedule):
     def __init__(self, step_value=0.1, stop_epoch=10):
         self.step_value = step_value
         self.stop_epoch = stop_epoch
@@ -40,7 +50,7 @@ class linear_constant_schedule():
     def __str__(self):
         return f"LC-{self.step_value}-{self.stop_epoch}"
 
-class constant_linear_constant_schedule():
+class constant_linear_constant_schedule(hyperparam_schedule):
     def __init__(self, start_epoch=0, start_value=0, step_value=0.1, stop_epoch=1):
         self.start_epoch = start_epoch
         self.start_value = start_value

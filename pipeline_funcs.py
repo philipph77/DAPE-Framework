@@ -115,14 +115,13 @@ def train(model, train_dataloader, validation_dataloader, run_name, logpath, log
                     'val_acc': val_acc,
                     'optimizer' : optimizer.state_dict(),
                 }
+            torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
         else:
             early_stopping_wait+=1    
             if early_stopping_wait > early_stopping_after_epochs:
                 print("Early Stopping")
-                break
-        
-    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
-    return 1
+                return
+    return
 
 def train_adversarial(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, lam_scheduler, max_epochs=300, early_stopping_after_epochs=20):
     """Trains a Multi-Source Framework and logs relevant data to file
@@ -264,14 +263,13 @@ def train_adversarial(model, train_dataloader, validation_dataloader, run_name, 
                     'adv_optimizer' : adv_optimizer.state_dict(),
                     'lam': lam,
                 }
+            torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
         else:
             early_stopping_wait+=1    
             if early_stopping_wait > early_stopping_after_epochs:
                 print("Early Stopping")
-                break
-        
-    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
-    return 1
+                return
+    return
 
 def test(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams=dict()):
     """Calculates and logs the achieved accuracy of a trained Framework on a testset
@@ -396,7 +394,7 @@ def test_adversarial(model, test_dataloader, run_name, logpath, logging_daemons,
         writer = csv.writer(f)
         writer.writerow([str(cla_test_acc), str(adv_test_acc)])
     
-    return 1
+    return
 
 def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, logpath, max_epochs=25):
     #setup
@@ -491,10 +489,10 @@ def pretrain_encoders(model, train_dataloader, validation_dataloader, run_name, 
                         'optimizer' : optimizers[i].state_dict(),
                     }
         
-    for i in range(len(model.encoders)):
-        torch.save(best_state[i], os.path.join(logpath, run_name, 'pretrained_encoder_'+str(i)+'.pt'))
+                for i in range(len(model.encoders)):
+                    torch.save(best_state[i], os.path.join(logpath, run_name, 'pretrained_encoder_'+str(i)+'.pt'))
     
-    return 1
+    return
 
 def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, domain_clfs, kappa_scheduler, max_epochs=300, early_stopping_after_epochs=50):
     """Trains a Multi-Source Framework and logs relevant data to file
@@ -673,14 +671,14 @@ def train_with_mmd_loss(model, train_dataloader, validation_dataloader, run_name
                     'optimizer' : optimizer.state_dict(),
                     'kappa': kappa,
                 }
+            torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
         else:
             early_stopping_wait+=1    
             if early_stopping_wait > early_stopping_after_epochs:
                 print("Early Stopping")
-                break
+                return
         
-    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
-    return 1
+    return
 
 def train_singlesource(model, train_dataloader, validation_dataloader, run_name, logpath, logging_daemons, max_epochs=500, early_stopping_after_epochs=20):
     """Trains a Multi-Source Framework and logs relevant data to file
@@ -781,14 +779,13 @@ def train_singlesource(model, train_dataloader, validation_dataloader, run_name,
                     'val_acc': val_acc,
                     'optimizer' : optimizer.state_dict(),
                 }
+            torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
         else:
             early_stopping_wait+=1    
             if early_stopping_wait > early_stopping_after_epochs:
                 print("Early Stopping")
-                break
-        
-    torch.save(best_state, os.path.join(logpath, run_name, 'best_model.pt'))
-    return 1
+                return
+    return
 
 def test_singlesource(model, test_dataloader, run_name, logpath, logging_daemons, used_hyperparams=dict()):
     """Calculates and logs the achieved accuracy of a trained Framework on a testset

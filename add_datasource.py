@@ -9,8 +9,9 @@ from tqdm import tqdm, trange
 from pipeline_helper import MMD_loss
 from sklearn.metrics import accuracy_score
 from sklearn.utils import resample
+from hyperparam_schedulers import hyperparam_schedule
 
-def train_domain_aligned_autoencoder(autoencoder, train_epochs, train_dataloader, validation_dataloader, z_train_list, z_val_list, run_name, logpath, kappa_scheduler, early_stopping_after_epochs=100, scheduler_kwargs=dict()):
+def train_domain_aligned_autoencoder(autoencoder: nn.Module, train_epochs: int, train_dataloader: torch.utils.data.DataLoader, validation_dataloader: torch.utils.data.DataLoader, z_train_list: list, z_val_list: list, run_name: str, logpath: str, kappa_scheduler: hyperparam_schedule, early_stopping_after_epochs:int = 100, scheduler_kwargs:dict = dict()) -> None:
     """CAUTION: THIS METHOD IS NOT TESTED YET!
     This method trains an autoencoder on the given data
 
@@ -119,18 +120,16 @@ def train_domain_aligned_autoencoder(autoencoder, train_epochs, train_dataloader
                     'optimizer' : optimizer.state_dict(),
                     'kappa': kappa,
                 }
+            torch.save(best_state, os.path.join(logpath, run_name, 'best_autoencoder.pt'))
         else:
             early_stopping_wait+=1    
             if early_stopping_wait > early_stopping_after_epochs:
                 print("Early Stopping")
-                break
-        
-    torch.save(best_state, os.path.join(logpath, run_name, 'best_autoencoder.pt'))
-
-    return autoencoder
+                return
+    return
 
 
-def test_new_datasource(encoder, classifier, test_dataloader, logpath, run_name):
+def test_new_datasource(encoder: nn.Module, classifier: nn.Module, test_dataloader: torch.utils.data.DataLoader, logpath: str, run_name: str) -> None:
     if os.path.isfile(os.path.join(logpath, run_name, 'test_logs.csv')):
         print("LogFile already exists! Rename or remove it, and restart the testing")
         return 0
@@ -160,7 +159,7 @@ def test_new_datasource(encoder, classifier, test_dataloader, logpath, run_name)
         writer = csv.writer(f)
         writer.writerow([str(acc)])
     
-    return 1
+    return
 
 if __name__ == '__main__':
     import architectures

@@ -19,7 +19,7 @@ if not(DEBUG_MODE):
     torch.autograd.profiler.emit_nvtx(False)
 
 
-class Framework(nn.Module):
+class DAPE(nn.Module):
     def __init__(self, encoders, latent_dim, num_classes, use_adversary=False):
         super().__init__()
         self.num_datasources = len(encoders)
@@ -92,7 +92,7 @@ if __name__ == '__main__':
         architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False), #SEED
         architectures.EEGNetEncoder(channels=62, temporal_filters=F1, spatial_filters=D, pointwise_filters=F2, dropout_propability=0.25, latent_dim=latent_dim, use_constrained_conv=False) #SEED-IV
     ]
-    model = Framework(encoders, 20, 3)
+    model = DAPE(encoders, 20, 3)
 
     print("----- #Model Parameters: -----")
     print(count_parameters(model))

@@ -32,7 +32,7 @@ def generate_encoder_list(encoder, latent_dim, data_source_files, **kwargs):#dat
 def generate_run_name():
     pass
 
-def send_mail_notification(subject, run_name, error):
+def send_mail_notification(GMAIL_ADDRESS, PASSWORD, RECIPIENT, subject, run_name, error):
     try:
         import smtplib
         SUBJECT = subject
@@ -41,9 +41,9 @@ def send_mail_notification(subject, run_name, error):
         mail = smtplib.SMTP('smtp.gmail.com', 587)
         mail.ehlo()
         mail.starttls()
-        mail.login('notifier.finished@gmail.com', 'tHeLtOCKwenI')
-        mail.sendmail('notifier.finished@gmail.com', 'philipp.hallgarten@web.de', content)
-        mail.sendmail('notifier.finished@gmail.com', 'philipp.hallgarten1@porsche.de', content)
+        mail.login(GMAIL_ADDRESS, PASSWORD)
+        mail.sendmail(GMAIL_ADDRESS, RECIPIENT, content)
+        mail.sendmail(GMAIL_ADDRESS, RECIPIENT, content)
         mail.close()
     except:
         print("Mail could not be sent")
