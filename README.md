@@ -1,5 +1,5 @@
 # DAPE Framework
-![DAPE Framework](img/dape_framework.png)
+![DAPE Framework](img/dape_framework.png)<br/><br/>
 DAPE (Domain Aligned Private Encoders) is a Framework for learning from multiple data-sources. Thereby, multiple encoders are jointly trained on data of different data-sources while using one common classifier. An MMD Loss is used for aligning the learnt representations of the encoders during train-time.
 
 ## Citation
