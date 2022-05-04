@@ -4,14 +4,16 @@ DAPE (Domain Aligned Private Encoders) is a Framework for learning from multiple
 ## Citation
 If you find this work helpfull, please cite the paper, this repository is based on
 ```
-@article{bethge2022domain,
-  title={Domain-Invariant Representation Learning from EEG with Private Encoders},
-  author={Bethge, David and Hallgarten, Philipp and Grosse-Puppendahl, Tobias and Kari, Mohamed and Mikut, Ralf and Schmidt, Albrecht and {\"O}zdenizci, Ozan},
-  booktitle={ICASSP 2022-2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
-  pages={tbd},
+@INPROCEEDINGS{DAPE2022Bethge,
+  author={Bethge, David and Hallgarten, Philipp and Grosse-Puppendahl, Tobias and Kari, Mohamed and Mikut, Ralf and Schmidt, Albrecht and Özdenizci, Ozan},
+  booktitle={ICASSP 2022 - 2022 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)}, 
+  title={Domain-Invariant Representation Learning from EEG with Private Encoders}, 
   year={2022},
-  organization={IEEE}
-}
+  volume={},
+  number={},
+  pages={1236-1240},
+  doi={10.1109/ICASSP43922.2022.9747398}}
+
 ```
 
 ## Description
